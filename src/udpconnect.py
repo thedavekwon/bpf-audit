@@ -36,14 +36,50 @@ int kprobe__ip4_datagram_connect(struct pt_regs *ctx, struct sock *sk, struct so
         data4.dport = (uaddr_in->sin_port >> 8) | ((uaddr_in->sin_port << 8) & 0xff00);
         ipv4_events.perf_submit(ctx, &data4, sizeof(data4));
     }
-    return 0;   
+    return 0;
+    
+struct ipv6_data_t {
+    u32 pid;
+    u32 uid;
+    unsigned __int128 daddr;
+    u16 dport;
+};
+BPF_PERF_OUTPUT(ipv6_events);
+
+int kprobe__ip6_datagram_connect(struct pt_regs *ctx, struct sock *sk, struct sockaddr *uaddr)
+{
+    u64 pid_tgid = bpf_get_current_pid_tgid();
+    u32 pid = pid_tgid >> 32;
+    
+    if (uaddr->sa_family == AF_INET) {
+        struct sockaddr_in * uaddr_in = (struct sockaddr_in *)uaddr;
+        
+        struct ipv6_data_t data4 = {};
+        data6.pid = pid;
+        data6.uid = bpf_get_current_uid_gid();
+        data6.daddr = uaddr_in->sin_addr.s_addr;
+        data6.dport = (uaddr_in->sin_port >> 8) | ((uaddr_in->sin_port << 8) & 0xff00);
+        ipv6_events.perf_submit(ctx, &data4, sizeof(data6));
+    }
+    return 0;
 }
 
 """
 
-
 def print_ipv4_event(cpu, data, size):
     event = b["ipv4_events"].event(data)
+    printb(
+        b"%-6d %-6d %-16s %-6d"
+        % (
+            event.uid,
+            event.pid,
+            inet_ntop(AF_INET, pack("I", event.daddr)).encode(),
+            event.dport,
+        )
+    )
+    
+def print_ipv6_event(cpu, data, size):
+    event = b["ipv6_events"].event(data)
     printb(
         b"%-6d %-6d %-16s %-6d"
         % (
@@ -57,6 +93,7 @@ def print_ipv4_event(cpu, data, size):
 
 b = BPF(text=bpf_text)
 b["ipv4_events"].open_perf_buffer(print_ipv4_event)
+b["ipv6_events"].open_perf_buffer(print_ipv6_event)
 print(
     "%-6s %-6s %-16s %-6s" % ("UID", "PID", "DADDR", "DPORT")
 )
