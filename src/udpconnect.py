@@ -37,7 +37,7 @@ int kprobe__ip4_datagram_connect(struct pt_regs *ctx, struct sock *sk, struct so
         ipv4_events.perf_submit(ctx, &data4, sizeof(data4));
     }
     return 0;
-    
+}    
 struct ipv6_data_t {
     u32 pid;
     u32 uid;
@@ -54,12 +54,12 @@ int kprobe__ip6_datagram_connect(struct pt_regs *ctx, struct sock *sk, struct so
     if (uaddr->sa_family == AF_INET) {
         struct sockaddr_in * uaddr_in = (struct sockaddr_in *)uaddr;
         
-        struct ipv6_data_t data4 = {};
+        struct ipv6_data_t data6 = {};
         data6.pid = pid;
         data6.uid = bpf_get_current_uid_gid();
         data6.daddr = uaddr_in->sin_addr.s_addr;
         data6.dport = (uaddr_in->sin_port >> 8) | ((uaddr_in->sin_port << 8) & 0xff00);
-        ipv6_events.perf_submit(ctx, &data4, sizeof(data6));
+        ipv6_events.perf_submit(ctx, &data6, sizeof(data6));
     }
     return 0;
 }
@@ -85,7 +85,7 @@ def print_ipv6_event(cpu, data, size):
         % (
             event.uid,
             event.pid,
-            inet_ntop(AF_INET, pack("I", event.daddr)).encode(),
+            inet_ntop(AF_INET6, event.daddr).encode(),
             event.dport,
         )
     )
