@@ -95,13 +95,13 @@ def print_ipv6_event(cpu, data, size):
         )
     )
 
-
-b = BPF(text=bpf_text)
-b["ipv4_events"].open_perf_buffer(print_ipv4_event)
-b["ipv6_events"].open_perf_buffer(print_ipv6_event)
-print("%-6s %-6s %-6s %-16s %-6s" % ("TYPE", "UID", "PID", "DADDR", "DPORT"))
-while True:
-    try:
-        b.perf_buffer_poll()
-    except KeyboardInterrupt:
-        exit()
+if __name__ == "__main__":
+    b = BPF(text=bpf_text)
+    b["ipv4_events"].open_perf_buffer(print_ipv4_event)
+    b["ipv6_events"].open_perf_buffer(print_ipv6_event)
+    print("%-6s %-6s %-6s %-16s %-6s" % ("TYPE", "UID", "PID", "DADDR", "DPORT"))
+    while True:
+        try:
+            b.perf_buffer_poll()
+        except KeyboardInterrupt:
+            exit()

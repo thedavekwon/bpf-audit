@@ -6,8 +6,12 @@ Final Project for ECE-455 Cybersecurity for Cooper Union
 
 # Usage
 ```
-# udpconnect
-cd src
-sudo chmod +x udpconnect.py
-./udpconnect.py
+# Audit
+sudo chmod +x audit.py
+./audit.py
+
+# Each tools
+cd tools
+sudo chmod +x <tool>.py
+./<tool>.py
 ```
