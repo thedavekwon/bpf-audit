@@ -1,5 +1,4 @@
 #!/usr/bin/python
-# bcc implementation of udpconnect from BPF Performance Tools by Brendan Gregg
 
 from bcc import BPF
 from bcc.utils import printb
@@ -37,13 +36,15 @@ int kprobe__ip4_datagram_connect(struct pt_regs *ctx, struct sock *sk, struct so
         ipv4_events.perf_submit(ctx, &data4, sizeof(data4));
     }
     return 0;
-}    
+}
+
 struct ipv6_data_t {
     u32 pid;
     u32 uid;
     unsigned __int128 daddr;
     u16 dport;
 };
+
 BPF_PERF_OUTPUT(ipv6_events);
 
 int kprobe__ip6_datagram_connect(struct pt_regs *ctx, struct sock *sk, struct sockaddr *uaddr)
@@ -64,39 +65,25 @@ int kprobe__ip6_datagram_connect(struct pt_regs *ctx, struct sock *sk, struct so
     return 0;
 }
 
+// add more probes here
 """
 
-def print_ipv4_event(cpu, data, size):
-    event = b["ipv4_events"].event(data)
-    printb(
-        b"%-6d %-6d %-16s %-6d"
-        % (
-            event.uid,
-            event.pid,
-            inet_ntop(AF_INET, pack("I", event.daddr)).encode(),
-            event.dport,
-        )
-    )
-    
-def print_ipv6_event(cpu, data, size):
-    event = b["ipv6_events"].event(data)
-    printb(
-        b"%-6d %-6d %-16s %-6d"
-        % (
-            event.uid,
-            event.pid,
-            inet_ntop(AF_INET6, event.daddr).encode(),
-            event.dport,
-        )
-    )
 
+def monitor_ipv4_event(cpu, data, size):
+    event = b["ipv4_events"].event(data)
+    pass
+
+
+def monitor_ipv6_event(cpu, data, size):
+    event = b["ipv6_events"].event(data)
+    pass
+
+# add more monitoring here
 
 b = BPF(text=bpf_text)
-b["ipv4_events"].open_perf_buffer(print_ipv4_event)
-b["ipv6_events"].open_perf_buffer(print_ipv6_event)
-print(
-    "%-6s %-6s %-16s %-6s" % ("UID", "PID", "DADDR", "DPORT")
-)
+b["ipv4_events"].open_perf_buffer(monitor_ipv4_event)
+b["ipv6_events"].open_perf_buffer(monitor_ipv6_event)
+
 while True:
     try:
         b.perf_buffer_poll()
