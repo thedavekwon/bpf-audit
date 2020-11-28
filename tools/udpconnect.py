@@ -12,14 +12,13 @@ bpf_text = """
 #include <uapi/linux/ip.h>
 #include <net/sock.h>
 
-struct ipv4_data_t {
+struct udp_ipv4_data_t {
     u32 pid;
     u32 uid;
     u32 daddr;
     u16 dport;
 };
-
-BPF_PERF_OUTPUT(ipv4_events);
+BPF_PERF_OUTPUT(udp_ipv4_events);
 
 int kprobe__ip4_datagram_connect(struct pt_regs *ctx, struct sock *sk, struct sockaddr *uaddr)
 {   
@@ -29,24 +28,23 @@ int kprobe__ip4_datagram_connect(struct pt_regs *ctx, struct sock *sk, struct so
     if (uaddr->sa_family == AF_INET) {
         struct sockaddr_in * uaddr_in = (struct sockaddr_in *)uaddr;
         
-        struct ipv4_data_t data4 = {};
+        struct udp_ipv4_data_t data4 = {};
         data4.pid = pid;
         data4.uid = bpf_get_current_uid_gid();
         data4.daddr = uaddr_in->sin_addr.s_addr;
         data4.dport = (uaddr_in->sin_port >> 8) | ((uaddr_in->sin_port << 8) & 0xff00);
-        ipv4_events.perf_submit(ctx, &data4, sizeof(data4));
+        udp_ipv4_events.perf_submit(ctx, &data4, sizeof(data4));
     }
     return 0;
 }
 
-struct ipv6_data_t {
+struct udp_ipv6_data_t {
     u32 pid;
     u32 uid;
     unsigned __int128 daddr;
     u16 dport;
 };
-
-BPF_PERF_OUTPUT(ipv6_events);
+BPF_PERF_OUTPUT(udp_ipv6_events);
 
 int kprobe__ip6_datagram_connect(struct pt_regs *ctx, struct sock *sk, struct sockaddr *uaddr)
 {
@@ -56,12 +54,12 @@ int kprobe__ip6_datagram_connect(struct pt_regs *ctx, struct sock *sk, struct so
     if (uaddr->sa_family == AF_INET) {
         struct sockaddr_in * uaddr_in = (struct sockaddr_in *)uaddr;
         
-        struct ipv6_data_t data6 = {};
+        struct udp_ipv6_data_t data6 = {};
         data6.pid = pid;
         data6.uid = bpf_get_current_uid_gid();
         data6.daddr = uaddr_in->sin_addr.s_addr;
         data6.dport = (uaddr_in->sin_port >> 8) | ((uaddr_in->sin_port << 8) & 0xff00);
-        ipv6_events.perf_submit(ctx, &data6, sizeof(data6));
+        udp_ipv6_events.perf_submit(ctx, &data6, sizeof(data6));
     }
     return 0;
 }
@@ -69,7 +67,7 @@ int kprobe__ip6_datagram_connect(struct pt_regs *ctx, struct sock *sk, struct so
 
 
 def print_ipv4_event(cpu, data, size):
-    event = b["ipv4_events"].event(data)
+    event = b["udp_ipv4_events"].event(data)
     printb(
         b"%-6s %-6d %-6d %-16s %-6d"
         % (
@@ -83,7 +81,7 @@ def print_ipv4_event(cpu, data, size):
 
 
 def print_ipv6_event(cpu, data, size):
-    event = b["ipv6_events"].event(data)
+    event = b["udp_ipv6_events"].event(data)
     printb(
         b"%-6s %-6d %-6d %-16s %-6d"
         % (
@@ -97,8 +95,8 @@ def print_ipv6_event(cpu, data, size):
 
 if __name__ == "__main__":
     b = BPF(text=bpf_text)
-    b["ipv4_events"].open_perf_buffer(print_ipv4_event)
-    b["ipv6_events"].open_perf_buffer(print_ipv6_event)
+    b["udp_ipv4_events"].open_perf_buffer(print_ipv4_event)
+    b["udp_ipv6_events"].open_perf_buffer(print_ipv6_event)
     print("%-6s %-6s %-6s %-16s %-6s" % ("TYPE", "UID", "PID", "DADDR", "DPORT"))
     while True:
         try:
