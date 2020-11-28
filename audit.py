@@ -12,7 +12,7 @@ bpf_text += (
     udpconnect.bpf_text
     + tcpconnect.bpf_text
     + tcpaccept.bpf_text
-    # + opensnoop.bpf_text
+    + opensnoop.bpf_text
     # + execsnoop.bpf_text
 )
 
@@ -67,6 +67,32 @@ def monitor_tcpconnect_ipv6_event(cpu, data, size):
     event = b["tcpcon_ipv6_events"].event(data)
     pass
 
+def monitor_opensnoop_event(cpu, data, size):
+    # header
+    print("%-14s" % ("TIME(s)"), end="")
+    print("%-6s %-16s %4s %3s " %
+          ("PID", "COMM", "FD", "ERR"), end="")
+    print("PATH")
+
+    event = b["opensnoop_events"].event(data)
+    # split return value into FD and errno columns
+    if event.ret >= 0:
+        fd_s = event.ret
+        err = 0
+    else:
+        fd_s = -1
+        err = - event.ret
+    printb(
+        b"%-14s %-6d %-16s %4d %3d %s"
+        % (
+            event.ts,
+            event.id & 0xffffffff >> 32,
+            event.comm,
+            fd_s,
+            err,
+            event.fname
+        )
+    )
 
 # add more monitoring here
 
@@ -87,6 +113,9 @@ b.attach_kretprobe(event="tcp_v4_connect", fn_name="trace_connect_v4_return")
 b.attach_kretprobe(event="tcp_v6_connect", fn_name="trace_connect_v6_return")
 b["tcpcon_ipv4_events"].open_perf_buffer(monitor_tcpconnect_ipv4_event)
 b["tcpcon_ipv6_events"].open_perf_buffer(monitor_tcpconnect_ipv6_event)
+
+# opensnoop
+b["opensnoop_events"].open_perf_buffer(monitor_opensnoop_event,page_cnt=64)
 
 while True:
     try:
