@@ -117,14 +117,10 @@ b["tcpcon_ipv6_events"].open_perf_buffer(monitor_tcpconnect_ipv6_event)
 # opensnoop
 fnname_open = b.get_syscall_prefix().decode() + 'open'
 fnname_openat = b.get_syscall_prefix().decode() + 'openat'
-fnname_openat2 = b.get_syscall_prefix().decode() + 'openat2'
-
 b.attach_kprobe(event=fnname_open, fn_name="syscall__trace_entry_open")
-b.attach_kretprobe(event=fnname_open, fn_name="trace_return")
+b.attach_kretprobe(event=fnname_open, fn_name="trace_opensnoop_return")
 b.attach_kprobe(event=fnname_openat, fn_name="syscall__trace_entry_openat")
-b.attach_kretprobe(event=fnname_openat, fn_name="trace_return")
-b.attach_kprobe(event=fnname_openat2, fn_name="syscall__trace_entry_openat2")
-b.attach_kretprobe(event=fnname_openat2, fn_name="trace_return")
+b.attach_kretprobe(event=fnname_openat, fn_name="trace_opensnoop_return")
 b["opensnoop_events"].open_perf_buffer(monitor_opensnoop_event,page_cnt=64)
 
 while True:

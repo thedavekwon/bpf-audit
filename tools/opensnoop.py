@@ -47,7 +47,7 @@ struct data_t {
 BPF_PERF_OUTPUT(events);
 
 BPF_HASH(infotmp, u64, struct val_t);
-int trace_return(struct pt_regs *ctx)
+int trace_opensnoop_return(struct pt_regs *ctx)
 {
     u64 id = bpf_get_current_pid_tgid();
     struct val_t *valp;
@@ -94,30 +94,6 @@ int syscall__trace_entry_open(struct pt_regs *ctx, const char __user *filename, 
 
 int syscall__trace_entry_openat(struct pt_regs *ctx, int dfd, const char __user *filename, int flags)
 {
-    struct val_t val = {};
-    u64 id = bpf_get_current_pid_tgid();
-    u32 pid = id >> 32; // PID is higher part
-    u32 tid = id;       // Cast and get the lower part
-    u32 uid = bpf_get_current_uid_gid();
-    PID_TID_FILTER
-    UID_FILTER
-    FLAGS_FILTER
-    if (container_should_be_filtered()) {
-        return 0;
-    }
-    if (bpf_get_current_comm(&val.comm, sizeof(val.comm)) == 0) {
-        val.id = id;
-        val.fname = filename;
-        val.flags = flags; // EXTENDED_STRUCT_MEMBER
-        infotmp.update(&id, &val);
-    }
-    return 0;
-};
-
-#include <uapi/linux/openat2.h>
-int syscall__trace_entry_openat2(struct pt_regs *ctx, int dfd, const char __user *filename, struct open_how *how)
-{
-    int flags = how->flags;
     struct val_t val = {};
     u64 id = bpf_get_current_pid_tgid();
     u32 pid = id >> 32; // PID is higher part
