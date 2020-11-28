@@ -4,7 +4,7 @@ from bcc import BPF
 from bcc.utils import printb
 
 from socket import AF_INET, AF_INET6, inet_ntop
-from tools import udpconnect, tcpaccept, tcpconnect
+from tools import udpconnect, tcpaccept, tcpconnect, opensnoop
 from struct import pack
 
 bpf_text = ""
@@ -115,6 +115,12 @@ b["tcpcon_ipv4_events"].open_perf_buffer(monitor_tcpconnect_ipv4_event)
 b["tcpcon_ipv6_events"].open_perf_buffer(monitor_tcpconnect_ipv6_event)
 
 # opensnoop
+b.attach_kprobe(event=fnname_open, fn_name="syscall__trace_entry_open")
+b.attach_kretprobe(event=fnname_open, fn_name="trace_return")
+b.attach_kprobe(event=fnname_openat, fn_name="syscall__trace_entry_openat")
+b.attach_kretprobe(event=fnname_openat, fn_name="trace_return")
+b.attach_kprobe(event=fnname_openat2, fn_name="syscall__trace_entry_openat2")
+b.attach_kretprobe(event=fnname_openat2, fn_name="trace_return")
 b["opensnoop_events"].open_perf_buffer(monitor_opensnoop_event,page_cnt=64)
 
 while True:

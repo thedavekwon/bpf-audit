@@ -17,7 +17,6 @@
 
 from __future__ import print_function
 from bcc import ArgString, BPF
-from bcc.containers import filter_by_containers
 from bcc.utils import printb
 from datetime import datetime, timedelta
 import os
@@ -122,77 +121,6 @@ bpf_text_kprobe_body = """
 };
 """
 
-bpf_text_kfunc_header_open = """
-#if defined(CONFIG_ARCH_HAS_SYSCALL_WRAPPER) && !defined(__s390x__)
-KRETFUNC_PROBE(FNNAME, struct pt_regs *regs, int ret)
-{
-    const char __user *filename = (char *)PT_REGS_PARM1(regs);
-    int flags = PT_REGS_PARM2(regs);
-#else
-KRETFUNC_PROBE(FNNAME, const char __user *filename, int flags, int ret)
-{
-#endif
-"""
-
-bpf_text_kfunc_header_openat = """
-#if defined(CONFIG_ARCH_HAS_SYSCALL_WRAPPER) && !defined(__s390x__)
-KRETFUNC_PROBE(FNNAME, struct pt_regs *regs, int ret)
-{
-    int dfd = PT_REGS_PARM1(regs);
-    const char __user *filename = (char *)PT_REGS_PARM2(regs);
-    int flags = PT_REGS_PARM3(regs);
-#else
-KRETFUNC_PROBE(FNNAME, int dfd, const char __user *filename, int flags, int ret)
-{
-#endif
-"""
-
-bpf_text_kfunc_header_openat2 = """
-#include <uapi/linux/openat2.h>
-#if defined(CONFIG_ARCH_HAS_SYSCALL_WRAPPER) && !defined(__s390x__)
-KRETFUNC_PROBE(FNNAME, struct pt_regs *regs, int ret)
-{
-    int dfd = PT_REGS_PARM1(regs);
-    const char __user *filename = (char *)PT_REGS_PARM2(regs);
-    struct open_how __user *how = (struct open_how *)PT_REGS_PARM3(regs);
-    int flags = how->flags;
-#else
-KRETFUNC_PROBE(FNNAME, int dfd, const char __user *filename, struct open_how __user *how, int ret)
-{
-    int flags = how->flags;
-#endif
-"""
-
-bpf_text_kfunc_body = """
-    u64 id = bpf_get_current_pid_tgid();
-    u32 pid = id >> 32; // PID is higher part
-    u32 tid = id;       // Cast and get the lower part
-    u32 uid = bpf_get_current_uid_gid();
-
-    PID_TID_FILTER
-    UID_FILTER
-    FLAGS_FILTER
-    if (container_should_be_filtered()) {
-        return 0;
-    }
-
-    struct data_t data = {};
-    bpf_get_current_comm(&data.comm, sizeof(data.comm));
-
-    u64 tsp = bpf_ktime_get_ns();
-
-    bpf_probe_read_user(&data.fname, sizeof(data.fname), (void *)filename);
-    data.id    = id;
-    data.ts    = tsp / 1000;
-    data.uid   = bpf_get_current_uid_gid();
-    data.flags = flags; // EXTENDED_STRUCT_MEMBER
-    data.ret   = ret;
-
-    events.perf_submit(ctx, &data, sizeof(data));
-
-    return 0;
-}
-"""
 
 b = BPF(text='')
 # open and openat are always in place since 2.6.16
@@ -202,47 +130,21 @@ fnname_openat2 = b.get_syscall_prefix().decode() + 'openat2'
 if b.ksymname(fnname_openat2) == -1:
     fnname_openat2 = None
 
-is_support_kfunc = BPF.support_kfunc()
-if is_support_kfunc:
-    bpf_text += bpf_text_kfunc_header_open.replace('FNNAME', fnname_open)
-    bpf_text += bpf_text_kfunc_body
+bpf_text += bpf_text_kprobe
 
-    bpf_text += bpf_text_kfunc_header_openat.replace('FNNAME', fnname_openat)
-    bpf_text += bpf_text_kfunc_body
+bpf_text += bpf_text_kprobe_header_open
+bpf_text += bpf_text_kprobe_body
 
-    if fnname_openat2:
-        bpf_text += bpf_text_kfunc_header_openat2.replace('FNNAME', fnname_openat2)
-        bpf_text += bpf_text_kfunc_body
-else:
-    bpf_text += bpf_text_kprobe
+bpf_text += bpf_text_kprobe_header_openat
+bpf_text += bpf_text_kprobe_body
 
-    bpf_text += bpf_text_kprobe_header_open
+if fnname_openat2:
+    bpf_text += bpf_text_kprobe_header_openat2
     bpf_text += bpf_text_kprobe_body
-
-    bpf_text += bpf_text_kprobe_header_openat
-    bpf_text += bpf_text_kprobe_body
-
-    if fnname_openat2:
-        bpf_text += bpf_text_kprobe_header_openat2
-        bpf_text += bpf_text_kprobe_body
 
 
 bpf_text = bpf_text.replace('PID_TID_FILTER', '')
 bpf_text = bpf_text.replace('UID_FILTER', '')
-bpf_text = filter_by_containers(args) + bpf_text
 bpf_text = bpf_text.replace('FLAGS_FILTER', '')
 bpf_text = '\n'.join(x for x in bpf_text.split('\n')
         if 'EXTENDED_STRUCT_MEMBER' not in x)
-
-# initialize BPF
-b = BPF(text=bpf_text)
-if not is_support_kfunc:
-    b.attach_kprobe(event=fnname_open, fn_name="syscall__trace_entry_open")
-    b.attach_kretprobe(event=fnname_open, fn_name="trace_return")
-
-    b.attach_kprobe(event=fnname_openat, fn_name="syscall__trace_entry_openat")
-    b.attach_kretprobe(event=fnname_openat, fn_name="trace_return")
-
-    if fnname_openat2:
-        b.attach_kprobe(event=fnname_openat2, fn_name="syscall__trace_entry_openat2")
-        b.attach_kretprobe(event=fnname_openat2, fn_name="trace_return")
