@@ -45,19 +45,14 @@ struct data_t {
 };
 
 BPF_PERF_OUTPUT(events);
-"""
 
-bpf_text_kprobe = """
 BPF_HASH(infotmp, u64, struct val_t);
-
 int trace_return(struct pt_regs *ctx)
 {
     u64 id = bpf_get_current_pid_tgid();
     struct val_t *valp;
     struct data_t data = {};
-
     u64 tsp = bpf_ktime_get_ns();
-
     valp = infotmp.lookup(&id);
     if (valp == 0) {
         // missed entry
@@ -70,78 +65,79 @@ int trace_return(struct pt_regs *ctx)
     data.uid = bpf_get_current_uid_gid();
     data.flags = valp->flags; // EXTENDED_STRUCT_MEMBER
     data.ret = PT_REGS_RC(ctx);
-
     events.perf_submit(ctx, &data, sizeof(data));
     infotmp.delete(&id);
-
     return 0;
 }
-"""
 
-bpf_text_kprobe_header_open = """
 int syscall__trace_entry_open(struct pt_regs *ctx, const char __user *filename, int flags)
 {
-"""
-
-bpf_text_kprobe_header_openat = """
-int syscall__trace_entry_openat(struct pt_regs *ctx, int dfd, const char __user *filename, int flags)
-{
-"""
-
-bpf_text_kprobe_header_openat2 = """
-#include <uapi/linux/openat2.h>
-int syscall__trace_entry_openat2(struct pt_regs *ctx, int dfd, const char __user *filename, struct open_how *how)
-{
-    int flags = how->flags;
-"""
-
-bpf_text_kprobe_body = """
     struct val_t val = {};
     u64 id = bpf_get_current_pid_tgid();
     u32 pid = id >> 32; // PID is higher part
     u32 tid = id;       // Cast and get the lower part
     u32 uid = bpf_get_current_uid_gid();
-
     PID_TID_FILTER
     UID_FILTER
     FLAGS_FILTER
-
     if (container_should_be_filtered()) {
         return 0;
     }
-
     if (bpf_get_current_comm(&val.comm, sizeof(val.comm)) == 0) {
         val.id = id;
         val.fname = filename;
         val.flags = flags; // EXTENDED_STRUCT_MEMBER
         infotmp.update(&id, &val);
     }
+    return 0;
+};
 
+int syscall__trace_entry_openat(struct pt_regs *ctx, int dfd, const char __user *filename, int flags)
+{
+    struct val_t val = {};
+    u64 id = bpf_get_current_pid_tgid();
+    u32 pid = id >> 32; // PID is higher part
+    u32 tid = id;       // Cast and get the lower part
+    u32 uid = bpf_get_current_uid_gid();
+    PID_TID_FILTER
+    UID_FILTER
+    FLAGS_FILTER
+    if (container_should_be_filtered()) {
+        return 0;
+    }
+    if (bpf_get_current_comm(&val.comm, sizeof(val.comm)) == 0) {
+        val.id = id;
+        val.fname = filename;
+        val.flags = flags; // EXTENDED_STRUCT_MEMBER
+        infotmp.update(&id, &val);
+    }
+    return 0;
+};
+
+#include <uapi/linux/openat2.h>
+int syscall__trace_entry_openat2(struct pt_regs *ctx, int dfd, const char __user *filename, struct open_how *how)
+{
+    int flags = how->flags;
+    struct val_t val = {};
+    u64 id = bpf_get_current_pid_tgid();
+    u32 pid = id >> 32; // PID is higher part
+    u32 tid = id;       // Cast and get the lower part
+    u32 uid = bpf_get_current_uid_gid();
+    PID_TID_FILTER
+    UID_FILTER
+    FLAGS_FILTER
+    if (container_should_be_filtered()) {
+        return 0;
+    }
+    if (bpf_get_current_comm(&val.comm, sizeof(val.comm)) == 0) {
+        val.id = id;
+        val.fname = filename;
+        val.flags = flags; // EXTENDED_STRUCT_MEMBER
+        infotmp.update(&id, &val);
+    }
     return 0;
 };
 """
-
-
-b = BPF(text='')
-# open and openat are always in place since 2.6.16
-fnname_open = b.get_syscall_prefix().decode() + 'open'
-fnname_openat = b.get_syscall_prefix().decode() + 'openat'
-fnname_openat2 = b.get_syscall_prefix().decode() + 'openat2'
-if b.ksymname(fnname_openat2) == -1:
-    fnname_openat2 = None
-
-bpf_text += bpf_text_kprobe
-
-bpf_text += bpf_text_kprobe_header_open
-bpf_text += bpf_text_kprobe_body
-
-bpf_text += bpf_text_kprobe_header_openat
-bpf_text += bpf_text_kprobe_body
-
-if fnname_openat2:
-    bpf_text += bpf_text_kprobe_header_openat2
-    bpf_text += bpf_text_kprobe_body
-
 
 bpf_text = bpf_text.replace('PID_TID_FILTER', '')
 bpf_text = bpf_text.replace('UID_FILTER', '')
