@@ -10,22 +10,8 @@
 #
 # Copyright (c) 2015 Brendan Gregg.
 # Licensed under the Apache License, Version 2.0 (the "License")
-#
-# 25-Sep-2015   Brendan Gregg   Created this.
-# 14-Feb-2016      "      "     Switch to bpf_perf_output.
-# 09-Jan-2019   Takuma Kume     Support filtering by UID
-# 30-Jul-2019   Xiaozhou Liu    Count connects.
-# 07-Oct-2020   Nabil Schear    Correlate connects with DNS responses
 
-from __future__ import print_function
-from bcc import BPF
-from bcc.utils import printb
-from socket import inet_ntop, ntohs, AF_INET, AF_INET6
-from struct import pack
-from time import sleep
-from datetime import datetime
 
-# define BPF program
 bpf_text = """
 #include <uapi/linux/ptrace.h>
 #include <net/sock.h>

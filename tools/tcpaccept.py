@@ -8,20 +8,8 @@
 #
 # Copyright (c) 2015 Brendan Gregg.
 # Licensed under the Apache License, Version 2.0 (the "License")
-#
-# 13-Oct-2015   Brendan Gregg   Created this.
-# 14-Feb-2016      "      "     Switch to bpf_perf_output.
-
-from __future__ import print_function
-from bcc.containers import filter_by_containers
-from bcc import BPF
-from socket import inet_ntop, AF_INET, AF_INET6
-from struct import pack
-from bcc.utils import printb
-from time import strftime
 
 
-# define BPF program
 bpf_text = """
 #include <uapi/linux/ptrace.h>
 #include <net/sock.h>
@@ -53,13 +41,6 @@ struct tcpacc_ipv6_data_t {
 BPF_PERF_OUTPUT(tcpacc_ipv6_events);
 """
 
-#
-# The following code uses kprobes to instrument inet_csk_accept().
-# On Linux 4.16 and later, we could use sock:inet_sock_set_state
-# tracepoint for efficiency, but it may output wrong PIDs. This is
-# because sock:inet_sock_set_state may run outside of process context.
-# Hence, we stick to kprobes until we find a proper solution.
-#
 bpf_text_kprobe = """
 int kretprobe__inet_csk_accept(struct pt_regs *ctx)
 {
