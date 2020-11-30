@@ -4,7 +4,7 @@ from bcc import BPF
 from bcc.utils import printb
 
 from socket import AF_INET, AF_INET6, inet_ntop
-from tools import udpconnect, tcpaccept, tcpconnect, opensnoop
+from tools import udpconnect, tcpaccept, tcpconnect, opensnoop, execsnoop
 from struct import pack
 
 bpf_text = ""
@@ -13,7 +13,7 @@ bpf_text += (
     + tcpconnect.bpf_text
     + tcpaccept.bpf_text
     + opensnoop.bpf_text
-    # + execsnoop.bpf_text
+    + execsnoop.bpf_text
 )
 
 
@@ -86,13 +86,24 @@ def monitor_opensnoop_event(cpu, data, size):
 #         event.comm,
 #         fd_s,
 #         err,
-#         event.fname,
-#     )
+#         event.fname)
 #     )
     pass
 
-
-# add more monitoring here
+def monitor_opensnoop_event(cpu,data,size):
+    ppid = event.ppid if event.ppid > 0 else get_ppid(event.pid)
+    ppid = b"%d" % ppid if ppid > 0 else b"?"
+    argv_text = b' '.join(argv[event.pid]).replace(b'\n', b'\\n')
+    event = b["execsnoop_events"].event(data)
+    printb(
+     b"%-16s %-6d %-6s %3d %s""
+     % (
+         event.comm,
+         event.pid,
+         ppid,
+         event.retval,
+         argv_text)
+     )
 
 b = BPF(text=bpf_text)
 
@@ -121,6 +132,12 @@ b.attach_kretprobe(event=fnname_open, fn_name="trace_opensnoop_return")
 b.attach_kprobe(event=fnname_openat, fn_name="syscall__trace_entry_openat")
 b.attach_kretprobe(event=fnname_openat, fn_name="trace_opensnoop_return")
 b["opensnoop_events"].open_perf_buffer(monitor_opensnoop_event, page_cnt=64)
+
+# execsnoop
+execve_fnname = b.get_syscall_fnname("execve")
+b.attach_kprobe(event=execve_fnname, fn_name="syscall__execve")
+b.attach_kretprobe(event=execve_fnname, fn_name="do_ret_sys_execve")
+b["execsnoop_events"].open_perf_buffer(monitor_execsnoop_event)
 
 while True:
     try:
