@@ -71,23 +71,23 @@ def monitor_tcpconnect_ipv6_event(cpu, data, size):
 def monitor_opensnoop_event(cpu, data, size):
     event = b["opensnoop_events"].event(data)
     # split return value into FD and errno columns
-     if event.ret >= 0:
-         fd_s = event.ret
-         err = 0
-     else:
-         fd_s = -1
-         err = -event.ret
-     printb(
-         b"%-14f %-6d %-6d %-16s %4d %3d %s"
-         % (
-             event.ts,
-             event.uid,
-             event.id & 0xFFFFFFFF >> 32,
-             event.comm,
-             fd_s,
-             err,
-             event.fname,
-         )
+    if event.ret >= 0:
+     fd_s = event.ret
+     err = 0
+    else:
+     fd_s = -1
+     err = -event.ret
+    printb(
+     b"%-14f %-6d %-6d %-16s %4d %3d %s"
+     % (
+         event.ts,
+         event.uid,
+         event.id & 0xFFFFFFFF >> 32,
+         event.comm,
+         fd_s,
+         err,
+         event.fname,
+     )
      )
     pass
 
