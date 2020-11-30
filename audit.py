@@ -90,7 +90,7 @@ def monitor_opensnoop_event(cpu, data, size):
 #     )
     pass
 
-def monitor_exesnoop_event(cpu,data,size):
+def monitor_execsnoop_event(cpu,data,size):
     ppid = event.ppid if event.ppid > 0 else get_ppid(event.pid)
     ppid = b"%d" % ppid if ppid > 0 else b"?"
     argv_text = b' '.join(argv[event.pid]).replace(b'\n', b'\\n')
