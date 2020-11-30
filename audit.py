@@ -104,6 +104,10 @@ def monitor_execsnoop_event(cpu,data,size):
          event.retval,
          argv_text)
      )
+    try:
+        del(argv[event.pid])
+    except Exception:
+        pass
 
 b = BPF(text=bpf_text)
 
