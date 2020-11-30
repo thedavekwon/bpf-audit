@@ -91,10 +91,10 @@ def monitor_opensnoop_event(cpu, data, size):
     pass
 
 def monitor_execsnoop_event(cpu,data,size):
+    event = b["execsnoop_events"].event(data)
     ppid = event.ppid if event.ppid > 0 else get_ppid(event.pid)
     ppid = b"%d" % ppid if ppid > 0 else b"?"
     argv_text = b' '.join(argv[event.pid]).replace(b'\n', b'\\n')
-    event = b["execsnoop_events"].event(data)
     printb(
      b"%-16s %-6d %-6s %3d %s"
      % (
