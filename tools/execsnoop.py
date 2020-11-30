@@ -72,10 +72,6 @@ int syscall__execve(struct pt_regs *ctx,
 
     UID_FILTER
 
-    if (container_should_be_filtered()) {
-        return 0;
-    }
-
     // create data here and pass to submit_arg to save stack space (#555)
     struct execsnoop_data_t data = {};
     struct task_struct *task;
@@ -109,10 +105,6 @@ out:
 
 int do_ret_sys_execve(struct pt_regs *ctx)
 {
-    if (container_should_be_filtered()) {
-        return 0;
-    }
-
     struct execsnoop_data_t data = {};
     struct task_struct *task;
 
