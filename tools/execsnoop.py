@@ -21,23 +21,6 @@ import pwd
 from collections import defaultdict
 from time import strftime
 
-
-def parse_uid(user):
-    try:
-        result = int(user)
-    except ValueError:
-        try:
-            user_info = pwd.getpwnam(user)
-        except KeyError:
-            raise argparse.ArgumentTypeError(
-                "{0!r} is not valid UID or user entry".format(user))
-        else:
-            return user_info.pw_uid
-    else:
-        # Maybe validate if UID < 0 ?
-        return result
-
-
 # define BPF program
 bpf_text = """
 #include <uapi/linux/ptrace.h>
@@ -51,7 +34,7 @@ enum event_type {
     EVENT_RET,
 };
 
-struct data_t {
+struct execsnoop_data_t {
     u32 pid;  // PID as in the userspace term (i.e. task->tgid in kernel)
     u32 ppid; // Parent PID as in the userspace term (i.e task->real_parent->tgid in kernel)
     u32 uid;
@@ -63,14 +46,14 @@ struct data_t {
 
 BPF_PERF_OUTPUT(events);
 
-static int __submit_arg(struct pt_regs *ctx, void *ptr, struct data_t *data)
+static int __submit_arg(struct pt_regs *ctx, void *ptr, struct execsnoop_data_t *data)
 {
     bpf_probe_read_user(data->argv, sizeof(data->argv), ptr);
-    events.perf_submit(ctx, data, sizeof(struct data_t));
+    events.perf_submit(ctx, data, sizeof(struct execsnoop_data_t));
     return 1;
 }
 
-static int submit_arg(struct pt_regs *ctx, void *ptr, struct data_t *data)
+static int submit_arg(struct pt_regs *ctx, void *ptr, struct execsnoop_data_t *data)
 {
     const char *argp = NULL;
     bpf_probe_read_user(&argp, sizeof(argp), ptr);
@@ -95,7 +78,7 @@ int syscall__execve(struct pt_regs *ctx,
     }
 
     // create data here and pass to submit_arg to save stack space (#555)
-    struct data_t data = {};
+    struct execsnoop_data_t data = {};
     struct task_struct *task;
 
     data.pid = bpf_get_current_pid_tgid() >> 32;
@@ -131,7 +114,7 @@ int do_ret_sys_execve(struct pt_regs *ctx)
         return 0;
     }
 
-    struct data_t data = {};
+    struct execsnoop_data_t data = {};
     struct task_struct *task;
 
     u32 uid = bpf_get_current_uid_gid() & 0xffffffff;
