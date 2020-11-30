@@ -67,32 +67,30 @@ def monitor_tcpconnect_ipv6_event(cpu, data, size):
     event = b["tcpcon_ipv6_events"].event(data)
     pass
 
-def monitor_opensnoop_event(cpu, data, size):
-    # header
-    print("%-14s" % ("TIME(s)"), end="")
-    print("%-6s %-16s %4s %3s " %
-          ("PID", "COMM", "FD", "ERR"), end="")
-    print("PATH")
 
+def monitor_opensnoop_event(cpu, data, size):
     event = b["opensnoop_events"].event(data)
     # split return value into FD and errno columns
-    if event.ret >= 0:
-        fd_s = event.ret
-        err = 0
-    else:
-        fd_s = -1
-        err = - event.ret
-    printb(
-        b"%-14s %-6d %-16s %4d %3d %s"
-        % (
-            event.ts,
-            event.id & 0xffffffff >> 32,
-            event.comm,
-            fd_s,
-            err,
-            event.fname
-        )
-    )
+    # if event.ret >= 0:
+    #     fd_s = event.ret
+    #     err = 0
+    # else:
+    #     fd_s = -1
+    #     err = -event.ret
+    # printb(
+    #     b"%-14f %-6d %-6d %-16s %4d %3d %s"
+    #     % (
+    #         event.ts,
+    #         event.uid,
+    #         event.id & 0xFFFFFFFF >> 32,
+    #         event.comm,
+    #         fd_s,
+    #         err,
+    #         event.fname,
+    #     )
+    # )
+    pass
+
 
 # add more monitoring here
 
@@ -115,14 +113,14 @@ b["tcpcon_ipv4_events"].open_perf_buffer(monitor_tcpconnect_ipv4_event)
 b["tcpcon_ipv6_events"].open_perf_buffer(monitor_tcpconnect_ipv6_event)
 
 # opensnoop
-b2 = BPF(text='')
-fnname_open = b2.get_syscall_prefix().decode() + 'open'
-fnname_openat = b2.get_syscall_prefix().decode() + 'openat'
+b2 = BPF(text="")
+fnname_open = b2.get_syscall_prefix().decode() + "open"
+fnname_openat = b2.get_syscall_prefix().decode() + "openat"
 b.attach_kprobe(event=fnname_open, fn_name="syscall__trace_entry_open")
 b.attach_kretprobe(event=fnname_open, fn_name="trace_opensnoop_return")
 b.attach_kprobe(event=fnname_openat, fn_name="syscall__trace_entry_openat")
 b.attach_kretprobe(event=fnname_openat, fn_name="trace_opensnoop_return")
-b["opensnoop_events"].open_perf_buffer(monitor_opensnoop_event,page_cnt=64)
+b["opensnoop_events"].open_perf_buffer(monitor_opensnoop_event, page_cnt=64)
 
 while True:
     try:
