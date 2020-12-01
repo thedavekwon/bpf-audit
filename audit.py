@@ -95,7 +95,6 @@ def monitor_opensnoop_event(cpu, data, size):
 
 def print_dns_event(cpu, data, size):
     event = b["dns_events"].event(data)
-    print(event)
     # payload = event.pkt[:event.buflen]
     # print(size, event.buflen)
     # dnspkt = dnslib.DNSRecord.parse(payload)

@@ -16,9 +16,7 @@ struct dns_data_t {
     u8  pkt[MAX_PKT];
 };
 BPF_PERF_OUTPUT(dns_events);
-
 BPF_HASH(tbl_udp_msg_hdr, u64, struct msghdr *);
-
 BPF_PERCPU_ARRAY(dns_data,struct dns_data_t,1);
 
 int trace_udp_recvmsg(struct pt_regs *ctx)
@@ -26,7 +24,7 @@ int trace_udp_recvmsg(struct pt_regs *ctx)
     __u64 pid_tgid = bpf_get_current_pid_tgid();
     struct sock *sk = (struct sock *)PT_REGS_PARM1(ctx);
     struct inet_sock *is = inet_sk(sk);
-    // only grab port 53 packets, 13568 is ntohs(53)
+    // 13568 = ntohs(53)
     if (is->inet_dport == 13568) {
         struct msghdr *msghdr = (struct msghdr *)PT_REGS_PARM2(ctx);
         tbl_udp_msg_hdr.update(&pid_tgid, &msghdr);
@@ -41,28 +39,34 @@ int trace_udp_ret_recvmsg(struct pt_regs *ctx)
     u32 uid = bpf_get_current_uid_gid();
     u32 zero = 0;
     struct msghdr **msgpp = tbl_udp_msg_hdr.lookup(&pid_tgid);
-    if (msgpp == 0)
-        return 0;
+    
+    if (msgpp == 0) return 0;
+    
     struct msghdr *msghdr = (struct msghdr *)*msgpp;
-    if (msghdr->msg_iter.type != ITER_IOVEC)
-        goto delete_and_return;
+    
+    if (msghdr->msg_iter.type != ITER_IOVEC) goto delete_and_return;
+    
     int copied = (int)PT_REGS_RC(ctx);
-    if (copied < 0)
-        goto delete_and_return;
+    
+    if (copied < 0) goto delete_and_return;
+    
     size_t buflen = (size_t)copied;
-    if (buflen > msghdr->msg_iter.iov->iov_len)
-        goto delete_and_return;
-    if (buflen > MAX_PKT)
-        buflen = MAX_PKT;
+    
+    if (buflen > msghdr->msg_iter.iov->iov_len) goto delete_and_return;
+    
+    if (buflen > MAX_PKT) buflen = MAX_PKT;
+    
     struct dns_data_t *data = dns_data.lookup(&zero);
-    if (!data) // this should never happen, just making the verifier happy
-        return 0;
+    
+    if (!data) return 0;
+    
     void *iovbase = msghdr->msg_iter.iov->iov_base;
     bpf_probe_read(data->pkt, buflen, iovbase);
     data->uid = uid;
     data->pid = pid;
     data->buflen = buflen;
     dns_events.perf_submit(ctx, data, buflen+10);
+    
 delete_and_return:
     tbl_udp_msg_hdr.delete(&pid_tgid);
     return 0;
