@@ -96,6 +96,7 @@ def monitor_execsnoop_event(cpu,data,size):
     event = b["execsnoop_events"].event(data)
     skip = False
 
+    argv = defaultdict(list)
     if event.type == EventType.EVENT_ARG:
         argv[event.pid].append(event.argv)
     elif event.type == EventType.EVENT_RET:
@@ -118,7 +119,7 @@ def monitor_execsnoop_event(cpu,data,size):
             
     ppid = event.ppid if event.ppid > 0 else get_ppid(event.pid)
     ppid = b"%d" % ppid if ppid > 0 else b"?"
-    argv = defaultdict(list)
+    
     argv_text = b' '.join(argv[event.pid]).replace(b'\n', b'\\n')
     printb(
      b"%-16s %-6d %-6s %3d %s"
