@@ -130,3 +130,17 @@ int do_ret_sys_execve(struct pt_regs *ctx)
 """
 
 bpf_text = bpf_text.replace('UID_FILTER', '')
+
+def get_ppid(pid):
+    try:
+        with open("/proc/%d/status" % pid) as status:
+            for line in status:
+                if line.startswith("PPid:"):
+                    return int(line.split()[1])
+    except IOError:
+        pass
+    return 0
+    
+class EventType(object):
+    EVENT_ARG = 0
+    EVENT_RET = 1
