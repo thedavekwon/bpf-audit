@@ -9,8 +9,7 @@ from struct import pack
 from tools.execsnoop import get_ppid, EventType
 from collections import defaultdict
 
-bpf_text = ""
-bpf_text += (
+bpf_text = (
     udpconnect.bpf_text
     + tcpconnect.bpf_text
     + tcpaccept.bpf_text
@@ -103,30 +102,34 @@ def print_dns_event(cpu, data, size):
     # print(event.uid, event.pid, dnspkt.q.qname)
     pass
 
-def monitor_execsnoop_event(cpu,data,size):
-    event = b["execsnoop_events"].event(data)
-    skip = False
 
-    argv = defaultdict(list)
-    if event.type == EventType.EVENT_ARG:
-        argv[event.pid].append(event.argv)
-    elif event.type == EventType.EVENT_RET:
-        if event.retval != 0:
-            skip = True
-        argv[event.pid] = [
-            b"\"" + arg.replace(b"\"", b"\\\"") + b"\""
-            for arg in argv[event.pid]
-        ]
-        if not skip:
-            ppid = event.ppid if event.ppid > 0 else get_ppid(event.pid)
-            ppid = b"%d" % ppid if ppid > 0 else b"?"
-            argv_text = b' '.join(argv[event.pid]).replace(b'\n', b'\\n')
-            printb(b"%-16s %-6d %-6s %3d %s" % (event.comm, event.pid,
-                   ppid, event.retval, argv_text))
-        try:
-            del(argv[event.pid])
-        except Exception:
-            pass
+def monitor_execsnoop_event(cpu, data, size):
+    event = b["execsnoop_events"].event(data)
+    # skip = False
+
+    # argv = defaultdict(list)
+    # if event.type == EventType.EVENT_ARG:
+    #     argv[event.pid].append(event.argv)
+    # elif event.type == EventType.EVENT_RET:
+    #     if event.retval != 0:
+    #         skip = True
+    #     argv[event.pid] = [
+    #         b'"' + arg.replace(b'"', b'\\"') + b'"' for arg in argv[event.pid]
+    #     ]
+    #     if not skip:
+    #         ppid = event.ppid if event.ppid > 0 else get_ppid(event.pid)
+    #         ppid = b"%d" % ppid if ppid > 0 else b"?"
+    #         argv_text = b" ".join(argv[event.pid]).replace(b"\n", b"\\n")
+    #         printb(
+    #             b"%-16s %-6d %-6s %3d %s"
+    #             % (event.comm, event.pid, ppid, event.retval, argv_text)
+    #         )
+    #     try:
+    #         del argv[event.pid]
+    #     except Exception:
+    #         pass
+    pass
+
 
 b = BPF(text=bpf_text)
 

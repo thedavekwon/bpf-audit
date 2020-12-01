@@ -9,17 +9,6 @@
 # Copyright 2016 Netflix, Inc.
 # Licensed under the Apache License, Version 2.0 (the "License")
 
-from __future__ import print_function
-from bcc import BPF
-from bcc.utils import ArgString, printb
-import bcc.utils as utils
-import argparse
-import re
-import time
-import pwd
-from collections import defaultdict
-from time import strftime
-
 # define BPF program
 bpf_text = """
 #include <uapi/linux/ptrace.h>
@@ -129,7 +118,8 @@ int do_ret_sys_execve(struct pt_regs *ctx)
 }
 """
 
-bpf_text = bpf_text.replace('UID_FILTER', '')
+bpf_text = bpf_text.replace("UID_FILTER", "")
+
 
 def get_ppid(pid):
     try:
@@ -140,7 +130,8 @@ def get_ppid(pid):
     except IOError:
         pass
     return 0
-    
+
+
 class EventType(object):
     EVENT_ARG = 0
     EVENT_RET = 1

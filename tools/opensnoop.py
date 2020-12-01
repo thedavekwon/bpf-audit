@@ -100,8 +100,9 @@ int syscall__trace_entry_openat(struct pt_regs *ctx, int dfd, const char __user 
 };
 """
 
-bpf_text = bpf_text.replace('PID_TID_FILTER', '')
-bpf_text = bpf_text.replace('UID_FILTER', '')
-bpf_text = bpf_text.replace('FLAGS_FILTER', '')
-bpf_text = '\n'.join(x for x in bpf_text.split('\n')
-        if 'EXTENDED_STRUCT_MEMBER' not in x)
+bpf_text = bpf_text.replace("PID_TID_FILTER", "")
+bpf_text = bpf_text.replace("UID_FILTER", "")
+bpf_text = bpf_text.replace("FLAGS_FILTER", "")
+bpf_text = "\n".join(
+    x for x in bpf_text.split("\n") if "EXTENDED_STRUCT_MEMBER" not in x
+)
