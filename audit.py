@@ -4,7 +4,7 @@ from bcc import BPF
 from bcc.utils import printb
 
 from socket import AF_INET, AF_INET6, inet_ntop
-from tools import udpconnect, tcpaccept, tcpconnect, opensnoop
+from tools import udpconnect, tcpaccept, tcpconnect, opensnoop, dns
 from struct import pack
 
 bpf_text = ""
@@ -14,6 +14,7 @@ bpf_text += (
     + tcpaccept.bpf_text
     + opensnoop.bpf_text
     # + execsnoop.bpf_text
+    + dns.bpf_text
 )
 
 
@@ -71,24 +72,33 @@ def monitor_tcpconnect_ipv6_event(cpu, data, size):
 def monitor_opensnoop_event(cpu, data, size):
     event = b["opensnoop_events"].event(data)
     # split return value into FD and errno columns
-#    if event.ret >= 0:
-#     fd_s = event.ret
-#     err = 0
-#    else:
-#     fd_s = -1
-#     err = -event.ret
-#    printb(
-#     b"%-14f %-6d %-6d %-16s %4d %3d %s"
-#     % (
-#         event.ts,
-#         event.uid,
-#         event.id & 0xFFFFFFFF >> 32,
-#         event.comm,
-#         fd_s,
-#         err,
-#         event.fname,
-#     )
-#     )
+    #    if event.ret >= 0:
+    #     fd_s = event.ret
+    #     err = 0
+    #    else:
+    #     fd_s = -1
+    #     err = -event.ret
+    #    printb(
+    #     b"%-14f %-6d %-6d %-16s %4d %3d %s"
+    #     % (
+    #         event.ts,
+    #         event.uid,
+    #         event.id & 0xFFFFFFFF >> 32,
+    #         event.comm,
+    #         fd_s,
+    #         err,
+    #         event.fname,
+    #     )
+    #     )
+    pass
+
+
+def print_dns_event(cpu, data, size):
+    event = b["dns_events"].event(data)
+    # payload = event.pkt[:event.buflen]
+    # print(size, event.buflen)
+    # dnspkt = dnslib.DNSRecord.parse(payload)
+    # print(event.uid, event.pid, dnspkt.q.qname)
     pass
 
 
@@ -121,6 +131,11 @@ b.attach_kretprobe(event=fnname_open, fn_name="trace_opensnoop_return")
 b.attach_kprobe(event=fnname_openat, fn_name="syscall__trace_entry_openat")
 b.attach_kretprobe(event=fnname_openat, fn_name="trace_opensnoop_return")
 b["opensnoop_events"].open_perf_buffer(monitor_opensnoop_event, page_cnt=64)
+
+# dns
+b.attach_kprobe(event="udp_recvmsg", fn_name="trace_udp_recvmsg")
+b.attach_kretprobe(event="udp_recvmsg", fn_name="trace_udp_ret_recvmsg")
+b["dns_events"].open_perf_buffer(print_dns_event)
 
 while True:
     try:
