@@ -18,14 +18,14 @@ bpf_text = """
 #include <uapi/linux/limits.h>
 #include <linux/sched.h>
 
-struct val_t {
+struct opensnoop_val_t {
     u64 id;
     char comm[TASK_COMM_LEN];
     const char *fname;
     int flags; // EXTENDED_STRUCT_MEMBER
 };
 
-struct data_t {
+struct opensnoop_data_t {
     u64 id;
     u64 ts;
     u32 uid;
@@ -37,12 +37,12 @@ struct data_t {
 
 BPF_PERF_OUTPUT(opensnoop_events);
 
-BPF_HASH(infotmp, u64, struct val_t);
+BPF_HASH(infotmp, u64, struct opensnoop_val_t);
 int trace_opensnoop_return(struct pt_regs *ctx)
 {
     u64 id = bpf_get_current_pid_tgid();
-    struct val_t *valp;
-    struct data_t data = {};
+    struct opensnoop_val_t *valp;
+    struct opensnoop_data_t data = {};
     u64 tsp = bpf_ktime_get_ns();
     valp = infotmp.lookup(&id);
     if (valp == 0) {
@@ -63,7 +63,7 @@ int trace_opensnoop_return(struct pt_regs *ctx)
 
 int syscall__trace_entry_open(struct pt_regs *ctx, const char __user *filename, int flags)
 {
-    struct val_t val = {};
+    struct opensnoop_val_t val = {};
     u64 id = bpf_get_current_pid_tgid();
     u32 pid = id >> 32; // PID is higher part
     u32 tid = id;       // Cast and get the lower part
@@ -82,7 +82,7 @@ int syscall__trace_entry_open(struct pt_regs *ctx, const char __user *filename, 
 
 int syscall__trace_entry_openat(struct pt_regs *ctx, int dfd, const char __user *filename, int flags)
 {
-    struct val_t val = {};
+    struct opensnoop_val_t val = {};
     u64 id = bpf_get_current_pid_tgid();
     u32 pid = id >> 32; // PID is higher part
     u32 tid = id;       // Cast and get the lower part
@@ -100,8 +100,9 @@ int syscall__trace_entry_openat(struct pt_regs *ctx, int dfd, const char __user 
 };
 """
 
-bpf_text = bpf_text.replace('PID_TID_FILTER', '')
-bpf_text = bpf_text.replace('UID_FILTER', '')
-bpf_text = bpf_text.replace('FLAGS_FILTER', '')
-bpf_text = '\n'.join(x for x in bpf_text.split('\n')
-        if 'EXTENDED_STRUCT_MEMBER' not in x)
+bpf_text = bpf_text.replace("PID_TID_FILTER", "")
+bpf_text = bpf_text.replace("UID_FILTER", "")
+bpf_text = bpf_text.replace("FLAGS_FILTER", "")
+bpf_text = "\n".join(
+    x for x in bpf_text.split("\n") if "EXTENDED_STRUCT_MEMBER" not in x
+)
