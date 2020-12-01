@@ -24,7 +24,6 @@ int kprobe__ip4_datagram_connect(struct pt_regs *ctx, struct sock *sk, struct so
 {   
     u64 pid_tgid = bpf_get_current_pid_tgid();
     u32 pid = pid_tgid >> 32;
-    
     if (uaddr->sa_family == AF_INET) {
         struct sockaddr_in * uaddr_in = (struct sockaddr_in *)uaddr;
         
@@ -50,7 +49,6 @@ int kprobe__ip6_datagram_connect(struct pt_regs *ctx, struct sock *sk, struct so
 {
     u64 pid_tgid = bpf_get_current_pid_tgid();
     u32 pid = pid_tgid >> 32;
-    
     if (uaddr->sa_family == AF_INET) {
         struct sockaddr_in * uaddr_in = (struct sockaddr_in *)uaddr;
         
@@ -69,9 +67,8 @@ int kprobe__ip6_datagram_connect(struct pt_regs *ctx, struct sock *sk, struct so
 def print_ipv4_event(cpu, data, size):
     event = b["udp_ipv4_events"].event(data)
     printb(
-        b"%-6s %-6d %-6d %-16s %-6d"
+        b"ipv4  %-6d %-6d %-16s %-6d"
         % (
-            "ipv4",
             event.uid,
             event.pid,
             inet_ntop(AF_INET, pack("I", event.daddr)).encode(),
@@ -83,15 +80,10 @@ def print_ipv4_event(cpu, data, size):
 def print_ipv6_event(cpu, data, size):
     event = b["udp_ipv6_events"].event(data)
     printb(
-        b"%-6s %-6d %-6d %-16s %-6d"
-        % (
-            "ipv6",
-            event.uid,
-            event.pid,
-            inet_ntop(AF_INET6, event.daddr).encode(),
-            event.dport,
-        )
+        b"ipv6  %-6d %-6d %-16s %-6d"
+        % (event.uid, event.pid, inet_ntop(AF_INET6, event.daddr).encode(), event.dport)
     )
+
 
 if __name__ == "__main__":
     b = BPF(text=bpf_text)
