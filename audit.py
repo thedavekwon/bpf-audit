@@ -6,7 +6,7 @@ from bcc.utils import printb
 from socket import AF_INET, AF_INET6, inet_ntop
 from tools import udpconnect, tcpaccept, tcpconnect, opensnoop, execsnoop
 from struct import pack
-from execsnoop import get_ppid, EventType
+from tools.execsnoop import get_ppid, EventType
 from collections import defaultdict
 
 bpf_text = ""
