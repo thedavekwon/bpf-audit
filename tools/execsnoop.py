@@ -43,12 +43,12 @@ struct execsnoop_data_t {
     int retval;
 };
 
-BPF_PERF_OUTPUT(events);
+BPF_PERF_OUTPUT(execsnoop_events);
 
 static int __submit_arg(struct pt_regs *ctx, void *ptr, struct execsnoop_data_t *data)
 {
     bpf_probe_read_user(data->argv, sizeof(data->argv), ptr);
-    events.perf_submit(ctx, data, sizeof(struct execsnoop_data_t));
+    execsnoop_events.perf_submit(ctx, data, sizeof(struct execsnoop_data_t));
     return 1;
 }
 
@@ -123,7 +123,7 @@ int do_ret_sys_execve(struct pt_regs *ctx)
     bpf_get_current_comm(&data.comm, sizeof(data.comm));
     data.type = EVENT_RET;
     data.retval = PT_REGS_RC(ctx);
-    events.perf_submit(ctx, &data, sizeof(data));
+    execsnoop_events.perf_submit(ctx, &data, sizeof(data));
 
     return 0;
 }

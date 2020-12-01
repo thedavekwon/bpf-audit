@@ -4,10 +4,8 @@ from bcc import BPF
 from bcc.utils import printb
 
 from socket import AF_INET, AF_INET6, inet_ntop
-from tools import udpconnect, tcpaccept, tcpconnect, opensnoop, execsnoop, dns
+from tools import udpconnect, tcpaccept, tcpconnect, opensnoop, execsnoop
 from struct import pack
-from execsnoop import get_ppid, EventType
-from collections import defaultdict
 
 bpf_text = ""
 bpf_text += (
@@ -93,35 +91,12 @@ def monitor_opensnoop_event(cpu, data, size):
     pass
 
 def monitor_execsnoop_event(cpu,data,size):
-    event = b["execsnoop_events"].event(data)
-    skip = False
-
-    if event.type == EventType.EVENT_ARG:
-        argv[event.pid].append(event.argv)
-    elif event.type == EventType.EVENT_RET:
-        if event.retval != 0:
-            skip = True
-        argv[event.pid] = [
-            b"\"" + arg.replace(b"\"", b"\\\"") + b"\""
-            for arg in argv[event.pid]
-        ]
-        if not skip:
-            ppid = event.ppid if event.ppid > 0 else get_ppid(event.pid)
-            ppid = b"%d" % ppid if ppid > 0 else b"?"
-            argv_text = b' '.join(argv[event.pid]).replace(b'\n', b'\\n')
-            printb(b"%-16s %-6d %-6s %3d %s" % (event.comm, event.pid,
-                   ppid, event.retval, argv_text))
-        try:
-            del(argv[event.pid])
-        except Exception:
-            pass
-            
     ppid = event.ppid if event.ppid > 0 else get_ppid(event.pid)
     ppid = b"%d" % ppid if ppid > 0 else b"?"
-    argv = defaultdict(list)
     argv_text = b' '.join(argv[event.pid]).replace(b'\n', b'\\n')
+    event = b["execsnoop_events"].event(data)
     printb(
-     b"%-16s %-6d %-6s %3d %s"
+     b"%-16s %-6d %-6s %3d %s""
      % (
          event.comm,
          event.pid,
@@ -129,18 +104,6 @@ def monitor_execsnoop_event(cpu,data,size):
          event.retval,
          argv_text)
      )
-    try:
-        del(argv[event.pid])
-    except Exception:
-        pass
-
-def print_dns_event(cpu, data, size):
-    event = b["dns_events"].event(data)
-    # payload = event.pkt[:event.buflen]
-    # print(size, event.buflen)
-    # dnspkt = dnslib.DNSRecord.parse(payload)
-    # print(event.uid, event.pid, dnspkt.q.qname)
-    pass
 
 b = BPF(text=bpf_text)
 
@@ -175,11 +138,6 @@ execve_fnname = b.get_syscall_fnname("execve")
 b.attach_kprobe(event=execve_fnname, fn_name="syscall__execve")
 b.attach_kretprobe(event=execve_fnname, fn_name="do_ret_sys_execve")
 b["execsnoop_events"].open_perf_buffer(monitor_execsnoop_event)
-
-# dns
-b.attach_kprobe(event="udp_recvmsg", fn_name="trace_udp_recvmsg")
-b.attach_kretprobe(event="udp_recvmsg", fn_name="trace_udp_ret_recvmsg")
-b["dns_events"].open_perf_buffer(print_dns_event)
 
 while True:
     try:
