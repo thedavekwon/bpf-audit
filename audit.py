@@ -4,7 +4,7 @@ from bcc import BPF
 from bcc.utils import printb
 
 from socket import AF_INET, AF_INET6, inet_ntop
-from tools import udpconnect, tcpaccept, tcpconnect, opensnoop, execsnoop, dns
+from tools import udpconnect, tcpaccept, tcpconnect, opensnoop, execsnoop
 from struct import pack
 from execsnoop import get_ppid, EventType
 from collections import defaultdict
@@ -134,14 +134,6 @@ def monitor_execsnoop_event(cpu,data,size):
     except Exception:
         pass
 
-def print_dns_event(cpu, data, size):
-    event = b["dns_events"].event(data)
-    # payload = event.pkt[:event.buflen]
-    # print(size, event.buflen)
-    # dnspkt = dnslib.DNSRecord.parse(payload)
-    # print(event.uid, event.pid, dnspkt.q.qname)
-    pass
-
 b = BPF(text=bpf_text)
 
 # udpconnect
@@ -176,10 +168,6 @@ b.attach_kprobe(event=execve_fnname, fn_name="syscall__execve")
 b.attach_kretprobe(event=execve_fnname, fn_name="do_ret_sys_execve")
 b["execsnoop_events"].open_perf_buffer(monitor_execsnoop_event)
 
-# dns
-b.attach_kprobe(event="udp_recvmsg", fn_name="trace_udp_recvmsg")
-b.attach_kretprobe(event="udp_recvmsg", fn_name="trace_udp_ret_recvmsg")
-b["dns_events"].open_perf_buffer(print_dns_event)
 
 while True:
     try:
