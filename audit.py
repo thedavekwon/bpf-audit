@@ -4,43 +4,46 @@ from bcc import BPF
 from bcc.utils import printb
 
 from socket import AF_INET, AF_INET6, inet_ntop
-from tools import udpconnect, tcpaccept, tcpconnect, opensnoop, execsnoop, dns
+from filters import udpconnect, tcpaccept, tcpconnect, opensnoop, execsnoop, dns
 from struct import pack
-from tools.execsnoop import get_ppid, EventType
+from filters.execsnoop import get_ppid, EventType
 from collections import defaultdict
-from ConfigParser import SafeConfigParser
+from configparser import SafeConfigParser
+import argparse
 
-bpf_text = (
-    udpconnect.bpf_text
-    + tcpconnect.bpf_text
-    + tcpaccept.bpf_text
-    + opensnoop.bpf_text
-    + execsnoop.bpf_text
-    + dns.bpf_text
-)
+parser = argparse.ArgumentParser(description="BPF audit")
+parser.add_argument("-c", type=str, help="Config file path", required=True)
+parser.add_argument("--udp", help="enable udp", action="store_true")
+parser.add_argument("--tcp", help="enable tcp", action="store_true")
+parser.add_argument("--open", help="enable open", action="store_true")
+parser.add_argument("--exec", help="enable exec", action="store_true")
+parser.add_argument("--dns", help="enable dns", action="store_true")
+parser.add_argument("--test", help="print bpftext", action="store_true")
 
-parser = SafeConfigParser()
-parser.read('config.ini')
-ip_blacklist, ip_alertlist,file_alertlist = [],[],[]
-for section_name in parser.sections():
-    if (section_name == 'IP Config'):
-        for name, value in parser.items(section_name):
-            if (name == 'blacklist'):
-                ip_blacklist.append(value)
-            if (name == 'alertlist'):
-                ip_alertlist.append(value)
-    if (section_name == 'Files Config'):
-        for name, value in parser.items(section_name):
-            if (name == 'alertlist'):
-                file_alertlist.append(value)
-print 'IP Blacklist:', ip_blacklist
-print 'IP Alertlist:', ip_alertlist
-print 'File Alertlist:', file_alertlist
+args = parser.parse_args()
+
+config = SafeConfigParser()
+config.read(args.c)
+
+
+def parse_config(config, key):
+    blacklist = config[key].get("blacklist", "").strip().split(",")
+    alertlist = config[key].get("alertlist", "").strip().split(",")
+    return {b.strip(): 1 for b in blacklist}, {a.strip(): 1 for a in alertlist}
+
+
+ip_blacklist, ip_alertlist = parse_config(config, "IP")
+domain_blacklist, domain_alertlist = parse_config(config, "DOMAIN")
+fs_blacklist, fs_alertlist = parse_config(config, "FS")
 
 
 def monitor_udp_ipv4_event(cpu, data, size):
     event = b["udp_ipv4_events"].event(data)
-    pass
+    daddr = inet_ntop(AF_INET, pack("I", event.daddr))
+    if daddr in ip_blacklist:
+        pass
+    if daddr in ip_alertlist:
+        pass
 
 
 def monitor_udp_ipv6_event(cpu, data, size):
@@ -150,44 +153,64 @@ def monitor_execsnoop_event(cpu, data, size):
     pass
 
 
+bpf_text = ""
+if args.udp:
+    bpf_text += udpconnect.bpf_text
+if args.tcp:
+    bpf_text += tcpconnect.bpf_text + tcpaccept.bpf_text
+if args.open:
+    bpf_text += opensnoop.bpf_text
+if args.exec:
+    bpf_text += execsnoop.bpf_text
+if args.dns:
+    bpf_text += dns.bpf_text
+
+if args.test:
+    print(bpf_text)
+    exit(0)
+
 b = BPF(text=bpf_text)
 
 # udpconnect
-b["udp_ipv4_events"].open_perf_buffer(monitor_udp_ipv4_event)
-b["udp_ipv6_events"].open_perf_buffer(monitor_udp_ipv6_event)
+if args.udp:
+    b["udp_ipv4_events"].open_perf_buffer(monitor_udp_ipv4_event)
+    b["udp_ipv6_events"].open_perf_buffer(monitor_udp_ipv6_event)
 
-# tcpaccept
-b["tcpacc_ipv4_events"].open_perf_buffer(monitor_tcpaccept_ipv4_event)
-b["tcpacc_ipv6_events"].open_perf_buffer(monitor_tcpaccept_ipv6_event)
+# tcpaccept and tcpconnect
+if args.tcp:
+    b["tcpacc_ipv4_events"].open_perf_buffer(monitor_tcpaccept_ipv4_event)
+    b["tcpacc_ipv6_events"].open_perf_buffer(monitor_tcpaccept_ipv6_event)
 
-# tcpconnect
-b.attach_kprobe(event="tcp_v4_connect", fn_name="trace_connect_entry")
-b.attach_kprobe(event="tcp_v6_connect", fn_name="trace_connect_entry")
-b.attach_kretprobe(event="tcp_v4_connect", fn_name="trace_connect_v4_return")
-b.attach_kretprobe(event="tcp_v6_connect", fn_name="trace_connect_v6_return")
-b["tcpcon_ipv4_events"].open_perf_buffer(monitor_tcpconnect_ipv4_event)
-b["tcpcon_ipv6_events"].open_perf_buffer(monitor_tcpconnect_ipv6_event)
+    b.attach_kprobe(event="tcp_v4_connect", fn_name="trace_connect_entry")
+    b.attach_kprobe(event="tcp_v6_connect", fn_name="trace_connect_entry")
+    b.attach_kretprobe(event="tcp_v4_connect", fn_name="trace_connect_v4_return")
+    b.attach_kretprobe(event="tcp_v6_connect", fn_name="trace_connect_v6_return")
+    b["tcpcon_ipv4_events"].open_perf_buffer(monitor_tcpconnect_ipv4_event)
+    b["tcpcon_ipv6_events"].open_perf_buffer(monitor_tcpconnect_ipv6_event)
 
 # opensnoop
-b2 = BPF(text="")
-fnname_open = b2.get_syscall_prefix().decode() + "open"
-fnname_openat = b2.get_syscall_prefix().decode() + "openat"
-b.attach_kprobe(event=fnname_open, fn_name="syscall__trace_entry_open")
-b.attach_kretprobe(event=fnname_open, fn_name="trace_opensnoop_return")
-b.attach_kprobe(event=fnname_openat, fn_name="syscall__trace_entry_openat")
-b.attach_kretprobe(event=fnname_openat, fn_name="trace_opensnoop_return")
-b["opensnoop_events"].open_perf_buffer(monitor_opensnoop_event, page_cnt=64)
+if args.open:
+    b2 = BPF(text="")
+    fnname_open = b2.get_syscall_prefix().decode() + "open"
+    fnname_openat = b2.get_syscall_prefix().decode() + "openat"
+    b.attach_kprobe(event=fnname_open, fn_name="syscall__trace_entry_open")
+    b.attach_kretprobe(event=fnname_open, fn_name="trace_opensnoop_return")
+    b.attach_kprobe(event=fnname_openat, fn_name="syscall__trace_entry_openat")
+    b.attach_kretprobe(event=fnname_openat, fn_name="trace_opensnoop_return")
+    b["opensnoop_events"].open_perf_buffer(monitor_opensnoop_event, page_cnt=64)
 
 # execsnoop
-execve_fnname = b.get_syscall_fnname("execve")
-b.attach_kprobe(event=execve_fnname, fn_name="syscall__execve")
-b.attach_kretprobe(event=execve_fnname, fn_name="do_ret_sys_execve")
-b["execsnoop_events"].open_perf_buffer(monitor_execsnoop_event)
+if args.exec:
+    execve_fnname = b.get_syscall_fnname("execve")
+    b.attach_kprobe(event=execve_fnname, fn_name="syscall__execve")
+    b.attach_kretprobe(event=execve_fnname, fn_name="do_ret_sys_execve")
+    b["execsnoop_events"].open_perf_buffer(monitor_execsnoop_event)
 
 # dns
-b.attach_kprobe(event="udp_recvmsg", fn_name="trace_udp_recvmsg")
-b.attach_kretprobe(event="udp_recvmsg", fn_name="trace_udp_ret_recvmsg")
-b["dns_events"].open_perf_buffer(print_dns_event)
+if args.dns:
+    b.attach_kprobe(event="udp_recvmsg", fn_name="trace_udp_recvmsg")
+    b.attach_kretprobe(event="udp_recvmsg", fn_name="trace_udp_ret_recvmsg")
+    b["dns_events"].open_perf_buffer(print_dns_event)
 
 while True:
     try:
