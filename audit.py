@@ -8,6 +8,7 @@ from tools import udpconnect, tcpaccept, tcpconnect, opensnoop, execsnoop, dns
 from struct import pack
 from tools.execsnoop import get_ppid, EventType
 from collections import defaultdict
+from ConfigParser import SafeConfigParser
 
 bpf_text = (
     udpconnect.bpf_text
@@ -17,6 +18,24 @@ bpf_text = (
     + execsnoop.bpf_text
     + dns.bpf_text
 )
+
+parser = SafeConfigParser()
+parser.read('config.ini')
+ip_blacklist, ip_alertlist,file_alertlist = [],[],[]
+for section_name in parser.sections():
+    if (section_name == 'IP Config'):
+        for name, value in parser.items(section_name):
+            if (name == 'blacklist'):
+                ip_blacklist.append(value)
+            if (name == 'alertlist'):
+                ip_alertlist.append(value)
+    if (section_name == 'Files Config'):
+        for name, value in parser.items(section_name):
+            if (name == 'alertlist'):
+                file_alertlist.append(value)
+print 'IP Blacklist:', ip_blacklist
+print 'IP Alertlist:', ip_alertlist
+print 'File Alertlist:', file_alertlist
 
 
 def monitor_udp_ipv4_event(cpu, data, size):
@@ -175,3 +194,4 @@ while True:
         b.perf_buffer_poll()
     except KeyboardInterrupt:
         exit()
+
