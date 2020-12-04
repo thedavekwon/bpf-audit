@@ -8,10 +8,8 @@ Final Project for ECE-455 Cybersecurity for Cooper Union
 ```
 # Audit
 sudo chmod +x audit.py
-./audit.py
+sudo ./audit.py -c <config file path> --[udp, tcp, open, exec, dns]
 
-# Each tools
-cd tools
-sudo chmod +x <tool>.py
-./<tool>.py
+# To print bpftext for testing
+sudo ./audit.py -c <config file path> --test
 ```
