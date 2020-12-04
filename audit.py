@@ -187,7 +187,7 @@ def print_dns_event(cpu, data, size):
     # print(event.uid, event.pid, dnspkt.q.qname)
     domain_name = dnspkt.q.qname
     if domain_name in domain_blacklist:
-        print("Process with PID {} and UID {} initiated a TCP over IPv6 connection to remote domain {} on blacklist.".format(event.pid, event.uid, domain_name)
+        print("Process with PID {} and UID {} initiated a TCP over IPv6 connection to remote domain {} on blacklist.".format(event.pid, event.uid, domain_name))
         try:
             os.kill(event.pid, signal.SIGTERM)
         except:
@@ -195,7 +195,7 @@ def print_dns_event(cpu, data, size):
         else:
             print("Successfully terminated process {}.", event.pid)
     if daddr in domain_alertlist:
-        print("Process with PID {} and UID {} initiated a TCP over IPv6 connection to remote domain {} on alert list.".format(event.pid, event.uid, domain_name)
+        print("Process with PID {} and UID {} initiated a TCP over IPv6 connection to remote domain {} on alert list.".format(event.pid, event.uid, domain_name))
     pass
 
 
