@@ -24,7 +24,7 @@ parser.add_argument("--test", help="print bpftext", action="store_true")
 
 args = parser.parse_args()
 
-config = SafeConfigParser()
+config = ConfigParser()
 config.read(args.c)
 
 
