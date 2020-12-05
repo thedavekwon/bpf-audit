@@ -12,6 +12,7 @@ from configparser import ConfigParser
 import argparse
 import os
 import signal
+import dnslib
 
 parser = argparse.ArgumentParser(description="BPF audit")
 parser.add_argument("-c", type=str, help="Config file path", required=True)
@@ -38,10 +39,9 @@ ip_blacklist, ip_alertlist = parse_config(config, "IP")
 domain_blacklist, domain_alertlist = parse_config(config, "DOMAIN")
 fs_blacklist, fs_alertlist = parse_config(config, "FS")
 
-
 def monitor_udp_ipv4_event(cpu, data, size):
     event = b["udp_ipv4_events"].event(data)
-    daddr = inet_ntop(AF_INET, pack("I", event.daddr))
+    daddr = inet_ntop(AF_INET, pack("I", event.daddr)).encode()
     if daddr in ip_blacklist:
         print("Process with PID {} and UID {} initiated a UDP over IPv4 connection to remote address {} on blacklist.".format(event.pid, event.uid, daddr))
         try:
@@ -56,7 +56,7 @@ def monitor_udp_ipv4_event(cpu, data, size):
 
 def monitor_udp_ipv6_event(cpu, data, size):
     event = b["udp_ipv6_events"].event(data)
-    daddr = inet_ntop(AF_INET, pack("I", event.daddr))
+    daddr = inet_ntop(AF_INET, pack("I", event.daddr)).encode()
     if daddr in ip_blacklist:
         print("Process with PID {} and UID {} initiated a UDP over IPv6 connection to remote address {} on blacklist.".format(event.pid, event.uid, daddr))
         try:
@@ -194,7 +194,7 @@ def print_dns_event(cpu, data, size):
             print("Unable to terminate process {}.", event.pid)
         else:
             print("Successfully terminated process {}.", event.pid)
-    if daddr in domain_alertlist:
+    if domain_name in domain_alertlist:
         print("Process with PID {} and UID {} initiated a TCP over IPv6 connection to remote domain {} on alert list.".format(event.pid, event.uid, domain_name))
     pass
 
