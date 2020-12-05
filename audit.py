@@ -41,7 +41,7 @@ fs_blacklist, fs_alertlist = parse_config(config, "FS")
 
 def monitor_udp_ipv4_event(cpu, data, size):
     event = b["udp_ipv4_events"].event(data)
-    daddr = inet_ntop(AF_INET, pack("I", event.daddr)).encode()
+    daddr = inet_ntop(AF_INET, pack("I", event.daddr))
     if daddr in ip_blacklist:
         print("Process with PID {} and UID {} initiated a UDP over IPv4 connection to remote address {} on blacklist.".format(event.pid, event.uid, daddr))
         try:
@@ -56,7 +56,7 @@ def monitor_udp_ipv4_event(cpu, data, size):
 
 def monitor_udp_ipv6_event(cpu, data, size):
     event = b["udp_ipv6_events"].event(data)
-    daddr = inet_ntop(AF_INET, pack("I", event.daddr)).encode()
+    daddr = inet_ntop(AF_INET6, event.daddr).encode()
     if daddr in ip_blacklist:
         print("Process with PID {} and UID {} initiated a UDP over IPv6 connection to remote address {} on blacklist.".format(event.pid, event.uid, daddr))
         try:
