@@ -8,7 +8,7 @@ from filters import udpconnect, tcpaccept, tcpconnect, opensnoop, execsnoop, dns
 from struct import pack
 from filters.execsnoop import get_ppid, EventType
 from collections import defaultdict
-from configparser import SafeConfigParser
+from configparser import ConfigParser
 import argparse
 import os
 import signal
