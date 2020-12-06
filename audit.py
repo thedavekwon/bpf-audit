@@ -1,4 +1,9 @@
 #!/usr/bin/python3
+import argparse
+import logging
+import os
+import subprocess
+import signal
 
 from bcc import BPF
 from bcc.utils import printb
@@ -9,7 +14,6 @@ from struct import pack
 from filters.execsnoop import get_ppid, EventType
 from collections import defaultdict
 from configparser import SafeConfigParser
-import argparse
 
 parser = argparse.ArgumentParser(description="BPF audit")
 parser.add_argument("-c", type=str, help="Config file path", required=True)
@@ -18,9 +22,16 @@ parser.add_argument("--tcp", help="enable tcp", action="store_true")
 parser.add_argument("--open", help="enable open", action="store_true")
 parser.add_argument("--exec", help="enable exec", action="store_true")
 parser.add_argument("--dns", help="enable dns", action="store_true")
-parser.add_argument("--test", help="print bpftext", action="store_true")
+parser.add_argument("--test", help="logging.info bpftext", action="store_true")
+parser.add_argument("--log", help="enable logging to a file", action="store_true")
 
 args = parser.parse_args()
+logging.getLogger().setLevel(logging.INFO)
+
+if args.log:
+    fh = logging.FileHandler("log.log")
+    fh.setLevel(logging.INFO)
+    logging.getLogger().addHandler(fh)
 
 config = SafeConfigParser()
 config.read(args.c)
@@ -29,12 +40,23 @@ config.read(args.c)
 def parse_config(config, key):
     blacklist = config[key].get("blacklist", "").strip().split(",")
     alertlist = config[key].get("alertlist", "").strip().split(",")
-    return {b.strip(): 1 for b in blacklist}, {a.strip(): 1 for a in alertlist}
+    return (
+        {b.strip(): 1 for b in blacklist if b},
+        {a.strip(): 1 for a in alertlist if a},
+    )
 
 
 ip_blacklist, ip_alertlist = parse_config(config, "IP")
 domain_blacklist, domain_alertlist = parse_config(config, "DOMAIN")
 fs_blacklist, fs_alertlist = parse_config(config, "FS")
+exec_blacklist, exec_alertlist = parse_config(config, "EXEC")
+
+# For exec arguments
+argv = defaultdict(list)
+
+
+def notitfy(msg):
+    subprocess.Popen(["notify-send", "bpf-audit", msg])
 
 
 def monitor_udp_ipv4_event(cpu, data, size):
@@ -94,63 +116,61 @@ def monitor_tcpconnect_ipv6_event(cpu, data, size):
 
 def monitor_opensnoop_event(cpu, data, size):
     event = b["opensnoop_events"].event(data)
-    # split return value into FD and errno columns
-    #    if event.ret >= 0:
-    #     fd_s = event.ret
-    #     err = 0
-    #    else:
-    #     fd_s = -1
-    #     err = -event.ret
-    #    printb(
-    #     b"%-14f %-6d %-6d %-16s %4d %3d %s"
-    #     % (
-    #         event.ts,
-    #         event.uid,
-    #         event.id & 0xFFFFFFFF >> 32,
-    #         event.comm,
-    #         fd_s,
-    #         err,
-    #         event.fname,
-    #     )
-    #     )
-    pass
+    fname = event.fname.decode()
+    if fname in fs_blacklist:
+        logging.info(
+            f"Process with PID {event.pid} and UID {event.uid} with command {event.comm.decode()} opened a file {fname} on blacklist."
+        )
+        try:
+            os.kill(event.pid, signal.SIGTERM)
+        except:
+            logging.info(f"Unable to terminate process {event.pid}.")
+        else:
+            logging.info(f"Successfully terminated process {event.pid}.")
+    if fname in fs_alertlist:
+        logging.info(
+            f"Process with PID {event.pid} and UID {event.uid} with command {event.comm.decode()} opened a file {fname} on alertlist."
+        )
 
 
 def print_dns_event(cpu, data, size):
     event = b["dns_events"].event(data)
     # payload = event.pkt[:event.buflen]
-    # print(size, event.buflen)
+    # logging.info(size, event.buflen)
     # dnspkt = dnslib.DNSRecord.parse(payload)
-    # print(event.uid, event.pid, dnspkt.q.qname)
+    # logging.info(event.uid, event.pid, dnspkt.q.qname)
     pass
 
 
 def monitor_execsnoop_event(cpu, data, size):
     event = b["execsnoop_events"].event(data)
-    # skip = False
+    if event.type == EventType.EVENT_ARG:
+        argv[event.pid].append(event.argv)
+    elif event.type == EventType.EVENT_RET:
+        if event.retval != 0:
+            return
+        argv[event.pid] = [arg.decode() for arg in argv[event.pid]]
+        prog = argv[event.pid][0]
+        full_command = " ".join(argv[event.pid])
+        if prog in exec_blacklist:
+            logging.info(
+                f"Process with PID {event.pid} and UID {event.uid} with command {full_command} execed program {prog} on blacklist."
+            )
+            try:
+                os.kill(event.pid, signal.SIGTERM)
+            except:
+                logging.info(f"Unable to terminate process {event.pid}.")
+            else:
+                logging.info(f"Successfully terminated process {event.pid}.")
+        if prog in exec_alertlist:
+            logging.info(
+                f"Process with PID {event.pid} and UID {event.uid} with command {full_command} execed program {prog} on alertlist."
+            )
 
-    # argv = defaultdict(list)
-    # if event.type == EventType.EVENT_ARG:
-    #     argv[event.pid].append(event.argv)
-    # elif event.type == EventType.EVENT_RET:
-    #     if event.retval != 0:
-    #         skip = True
-    #     argv[event.pid] = [
-    #         b'"' + arg.replace(b'"', b'\\"') + b'"' for arg in argv[event.pid]
-    #     ]
-    #     if not skip:
-    #         ppid = event.ppid if event.ppid > 0 else get_ppid(event.pid)
-    #         ppid = b"%d" % ppid if ppid > 0 else b"?"
-    #         argv_text = b" ".join(argv[event.pid]).replace(b"\n", b"\\n")
-    #         printb(
-    #             b"%-16s %-6d %-6s %3d %s"
-    #             % (event.comm, event.pid, ppid, event.retval, argv_text)
-    #         )
-    #     try:
-    #         del argv[event.pid]
-    #     except Exception:
-    #         pass
-    pass
+        try:
+            del argv[event.pid]
+        except Exception:
+            logging.error(f"Failed to delete argv for pid {event.pid}.")
 
 
 bpf_text = ""
@@ -190,9 +210,8 @@ if args.tcp:
 
 # opensnoop
 if args.open:
-    b2 = BPF(text="")
-    fnname_open = b2.get_syscall_prefix().decode() + "open"
-    fnname_openat = b2.get_syscall_prefix().decode() + "openat"
+    fnname_open = b.get_syscall_prefix().decode() + "open"
+    fnname_openat = b.get_syscall_prefix().decode() + "openat"
     b.attach_kprobe(event=fnname_open, fn_name="syscall__trace_entry_open")
     b.attach_kretprobe(event=fnname_open, fn_name="trace_opensnoop_return")
     b.attach_kprobe(event=fnname_openat, fn_name="syscall__trace_entry_openat")
