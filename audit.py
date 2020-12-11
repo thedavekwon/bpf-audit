@@ -151,7 +151,21 @@ def monitor_execsnoop_event(cpu, data, size):
     #     except Exception:
     #         pass
     pass
-
+    
+    
+def print_tcpreset_event(cpu, data, size):
+    event = b["tcpreset_ipv4_events"].event(data)
+    # printb(
+    #     b"%-6d %-6d %-16s %-6d %-16s %-6d"
+    #     % (
+    #         event.uid,
+    #         event.pid,
+    #         inet_ntop(AF_INET, pack("I", event.daddr)).encode(),
+    #         event.dport,
+    #         inet_ntop(AF_INET, pack("I", event.saddr)).encode(),
+    #         event.sport,
+    #     )
+    # )
 
 bpf_text = ""
 if args.udp:
