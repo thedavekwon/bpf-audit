@@ -64,7 +64,7 @@ def notitfy(msg):
 
 def monitor_udp_ipv4_event(cpu, data, size):
     event = b["udp_ipv4_events"].event(data)
-    daddr = inet_ntop(AF_INET, pack("I", event.daddr))
+    daddr = str(inet_ntop(AF_INET, pack("I", event.daddr)))[2:-1]
     if daddr in ip_blacklist:
         logging.info(
             f"Process with PID {event.pid} and UID {event.uid} initiated a UDP over IPv4 connection to remote address {daddr} on blacklist."
@@ -81,7 +81,7 @@ def monitor_udp_ipv4_event(cpu, data, size):
 
 def monitor_udp_ipv6_event(cpu, data, size):
     event = b["udp_ipv6_events"].event(data)
-    daddr = inet_ntop(AF_INET6, event.daddr).encode()
+    str(daddr = inet_ntop(AF_INET6, event.daddr).encode())[2:-1]
     if daddr in ip_blacklist:
         print("Process with PID {} and UID {} initiated a UDP over IPv6 connection to remote address {} on blacklist.".format(event.pid, event.uid, daddr))
         try:
@@ -96,7 +96,8 @@ def monitor_udp_ipv6_event(cpu, data, size):
 
 def monitor_tcpaccept_ipv4_event(cpu, data, size):
     event = b["tcpacc_ipv4_events"].event(data)
-    daddr = inet_ntop(AF_INET, pack("I", event.daddr)).encode()
+    daddr = str(inet_ntop(AF_INET, pack("I", event.daddr)).encode())[2:-1]
+    print(daddr)
     if daddr in ip_blacklist:
         logging.info(
             f"Process with PID {event.pid} and UID {event.uid} accepted a TCP over IPv4 connection from remote address {daddr} on blacklist.")
@@ -124,7 +125,8 @@ def monitor_tcpaccept_ipv4_event(cpu, data, size):
 
 def monitor_tcpaccept_ipv6_event(cpu, data, size):
     event = b["tcpacc_ipv6_events"].event(data)
-    daddr = inet_ntop(AF_INET, pack("I", event.daddr)).encode()
+    daddr = str(inet_ntop(AF_INET, pack("I", event.daddr)).encode())[2:-1]
+    print(daddr)
     if daddr in ip_blacklist:
         logging.info(
             f"Process with PID {event.pid} and UID {event.uid} accepted a TCP over IPv6 connection from remote address {daddr} on blacklist.")
@@ -141,7 +143,7 @@ def monitor_tcpaccept_ipv6_event(cpu, data, size):
 
 def monitor_tcpconnect_ipv4_event(cpu, data, size):
     event = b["tcpcon_ipv4_events"].event(data)
-    daddr = inet_ntop(AF_INET, pack("I", event.daddr)).encode()
+    daddr = str(inet_ntop(AF_INET, pack("I", event.daddr)).encode())[2:-1]
     if daddr in ip_blacklist:
         logging.info(
             f"Process with PID {event.pid} and UID {event.uid} initiated a TCP over IPv4 connection to remote address {daddr} on blacklist.")
@@ -169,7 +171,7 @@ def monitor_tcpconnect_ipv4_event(cpu, data, size):
 
 def monitor_tcpconnect_ipv6_event(cpu, data, size):
     event = b["tcpcon_ipv6_events"].event(data)
-    daddr = inet_ntop(AF_INET, pack("I", event.daddr)).encode()
+    daddr = str(inet_ntop(AF_INET, pack("I", event.daddr)).encode())[2:-1]
     if daddr in ip_blacklist:
         logging.info(
             f"Process with PID {event.pid} and UID {event.uid} initiated a TCP over IPv6 connection to remote address {daddr} on blacklist.")
@@ -205,11 +207,10 @@ def monitor_opensnoop_event(cpu, data, size):
 def print_dns_event(cpu, data, size):
     event = b["dns_events"].event(data)
     payload = event.pkt[:event.buflen]
-    # print(size, event.buflen)
     dnspkt = dnslib.DNSRecord.parse(payload)
-    # print(event.uid, event.pid, dnspkt.q.qname)
-    domain_name = dnspkt.q.qname
-    if domain_name in domain_blacklist:
+    #print(event.uid, event.pid, dnspkt.q.qname)
+    domain_name = str(dnspkt.q.qname)[:-1]
+    if any(domain_name in x for x in domain_blacklist):
         logging.info(
             f"Process with PID {event.pid} and UID {event.uid} initiated a TCP over IPv6 connection to remote domain {domain_name} on blacklist.")
         try:
@@ -218,7 +219,7 @@ def print_dns_event(cpu, data, size):
             logging.info(f"Unable to terminate process {event.pid}.")
         else:
             logging.info(f"Successfully terminated process {event.pid}.")
-    if domain_name in domain_alertlist:
+    if any(domain_name in x for x in domain_alertlist):
         logging.info(f"Process with PID {event.pid} and UID {event.uid} initiated a TCP over IPv6 connection to remote domain {domain_name} on alert list.")
     pass
 
