@@ -64,7 +64,7 @@ def notitfy(msg):
 
 def monitor_udp_ipv4_event(cpu, data, size):
     event = b["udp_ipv4_events"].event(data)
-    daddr = str(inet_ntop(AF_INET, pack("I", event.daddr)))[2:-1]
+    daddr = str(inet_ntop(AF_INET, pack("I", event.daddr)))
     if daddr in ip_blacklist:
         logging.info(
             f"Process with PID {event.pid} and UID {event.uid} initiated a UDP over IPv4 connection to remote address {daddr} on blacklist."
@@ -81,7 +81,7 @@ def monitor_udp_ipv4_event(cpu, data, size):
 
 def monitor_udp_ipv6_event(cpu, data, size):
     event = b["udp_ipv6_events"].event(data)
-    str(daddr = inet_ntop(AF_INET6, event.daddr).encode())[2:-1]
+    str(daddr = inet_ntop(AF_INET6, event.daddr).encode())
     if daddr in ip_blacklist:
         print("Process with PID {} and UID {} initiated a UDP over IPv6 connection to remote address {} on blacklist.".format(event.pid, event.uid, daddr))
         try:
@@ -97,7 +97,6 @@ def monitor_udp_ipv6_event(cpu, data, size):
 def monitor_tcpaccept_ipv4_event(cpu, data, size):
     event = b["tcpacc_ipv4_events"].event(data)
     daddr = str(inet_ntop(AF_INET, pack("I", event.daddr)).encode())[2:-1]
-    print(daddr)
     if daddr in ip_blacklist:
         logging.info(
             f"Process with PID {event.pid} and UID {event.uid} accepted a TCP over IPv4 connection from remote address {daddr} on blacklist.")
@@ -126,7 +125,6 @@ def monitor_tcpaccept_ipv4_event(cpu, data, size):
 def monitor_tcpaccept_ipv6_event(cpu, data, size):
     event = b["tcpacc_ipv6_events"].event(data)
     daddr = str(inet_ntop(AF_INET, pack("I", event.daddr)).encode())[2:-1]
-    print(daddr)
     if daddr in ip_blacklist:
         logging.info(
             f"Process with PID {event.pid} and UID {event.uid} accepted a TCP over IPv6 connection from remote address {daddr} on blacklist.")
