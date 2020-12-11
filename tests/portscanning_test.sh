@@ -5,7 +5,7 @@ sleep 15
 nmap 127.0.0.1
 
 # threshold: 100
-# command: sudo python3 audit.py -c config/config.ini --tcpreset
+# command: sudo python3 audit.py -c config/config.ini --port
 # INFO:root:Sent TCP reset packet to 127.0.0.1 with 101 ports within the threshold
 # INFO:root:Sent TCP reset packet to 127.0.0.1 with 102 ports within the threshold
 # INFO:root:Sent TCP reset packet to 127.0.0.1 with 103 ports within the threshold
