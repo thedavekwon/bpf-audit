@@ -29,6 +29,7 @@ struct opensnoop_data_t {
     u64 id;
     u64 ts;
     u32 uid;
+    u32 pid;
     int ret;
     char comm[TASK_COMM_LEN];
     char fname[NAME_MAX];
@@ -41,6 +42,7 @@ BPF_HASH(infotmp, u64, struct opensnoop_val_t);
 int trace_opensnoop_return(struct pt_regs *ctx)
 {
     u64 id = bpf_get_current_pid_tgid();
+    u32 pid = id >> 32;
     struct opensnoop_val_t *valp;
     struct opensnoop_data_t data = {};
     u64 tsp = bpf_ktime_get_ns();
@@ -54,6 +56,7 @@ int trace_opensnoop_return(struct pt_regs *ctx)
     data.id = valp->id;
     data.ts = tsp / 1000;
     data.uid = bpf_get_current_uid_gid();
+    data.pid = pid;
     data.flags = valp->flags; // EXTENDED_STRUCT_MEMBER
     data.ret = PT_REGS_RC(ctx);
     opensnoop_events.perf_submit(ctx, &data, sizeof(data));
