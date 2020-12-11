@@ -1,15 +1,24 @@
 #!/usr/bin/python3
-
+import argparse
+import logging
 from bcc import BPF
 from bcc.utils import printb
 
 from socket import AF_INET, AF_INET6, inet_ntop
-from filters import udpconnect, tcpaccept, tcpconnect, opensnoop, execsnoop, dns
+from filters import (
+    udpconnect,
+    tcpaccept,
+    tcpconnect,
+    opensnoop,
+    execsnoop,
+    dns,
+    tcpreset,
+)
 from struct import pack
 from filters.execsnoop import get_ppid, EventType
 from collections import defaultdict
 from configparser import SafeConfigParser
-import argparse
+from cachetools import TTLCache
 
 parser = argparse.ArgumentParser(description="BPF audit")
 parser.add_argument("-c", type=str, help="Config file path", required=True)
@@ -18,6 +27,9 @@ parser.add_argument("--tcp", help="enable tcp", action="store_true")
 parser.add_argument("--open", help="enable open", action="store_true")
 parser.add_argument("--exec", help="enable exec", action="store_true")
 parser.add_argument("--dns", help="enable dns", action="store_true")
+parser.add_argument(
+    "--port", help="enable port scanning detection", action="store_true"
+)
 parser.add_argument("--test", help="print bpftext", action="store_true")
 
 args = parser.parse_args()
@@ -35,6 +47,7 @@ def parse_config(config, key):
 ip_blacklist, ip_alertlist = parse_config(config, "IP")
 domain_blacklist, domain_alertlist = parse_config(config, "DOMAIN")
 fs_blacklist, fs_alertlist = parse_config(config, "FS")
+tcpreset_threshold = int(config["PORT"].get("threshold"))
 
 
 def monitor_udp_ipv4_event(cpu, data, size):
@@ -151,21 +164,26 @@ def monitor_execsnoop_event(cpu, data, size):
     #     except Exception:
     #         pass
     pass
-    
-    
+
+
+cache = {}
+
+
 def print_tcpreset_event(cpu, data, size):
+    """
+    Port scanning detection with a simple heuristic. 
+    """
     event = b["tcpreset_ipv4_events"].event(data)
-    # printb(
-    #     b"%-6d %-6d %-16s %-6d %-16s %-6d"
-    #     % (
-    #         event.uid,
-    #         event.pid,
-    #         inet_ntop(AF_INET, pack("I", event.daddr)).encode(),
-    #         event.dport,
-    #         inet_ntop(AF_INET, pack("I", event.saddr)).encode(),
-    #         event.sport,
-    #     )
-    # )
+    cache.setdefault(
+        event.saddr,
+        TTLCache(maxsize=65536, ttl=10),  # max port length  # threshold
+    )
+    cache[event.saddr][event.dport] = 1
+    if len(cache[event.saddr]) > tcpreset_threshold:
+        logging.info(
+            f"Process with PID {event.pid} and UID {event.uid} sent TCP reset packet to {inet_ntop(AF_INET, pack('I', event.saddr))} with {len(cache[event.saddr])} ports"
+        )
+
 
 bpf_text = ""
 if args.udp:
@@ -178,6 +196,8 @@ if args.exec:
     bpf_text += execsnoop.bpf_text
 if args.dns:
     bpf_text += dns.bpf_text
+if args.port:
+    bpf_text += tcpreset.bpf_text
 
 if args.test:
     print(bpf_text)
@@ -225,6 +245,10 @@ if args.dns:
     b.attach_kprobe(event="udp_recvmsg", fn_name="trace_udp_recvmsg")
     b.attach_kretprobe(event="udp_recvmsg", fn_name="trace_udp_ret_recvmsg")
     b["dns_events"].open_perf_buffer(print_dns_event)
+
+# tcpreset
+if args.port:
+    b["tcpreset_ipv4_events"].open_perf_buffer(print_tcpreset_event)
 
 while True:
     try:
