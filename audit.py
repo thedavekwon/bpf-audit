@@ -181,7 +181,7 @@ def print_tcpreset_event(cpu, data, size):
     cache[event.saddr][event.dport] = 1
     if len(cache[event.saddr]) > tcpreset_threshold:
         logging.info(
-            f"Process with PID {event.pid} and UID {event.uid} sent TCP reset packet to {inet_ntop(AF_INET, pack('I', event.saddr))} with {len(cache[event.saddr])} ports"
+            f"Sent TCP reset packet to {inet_ntop(AF_INET, pack('I', event.saddr))} with {len(cache[event.saddr])} ports within the threshold"
         )
 
 
