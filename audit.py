@@ -74,6 +74,7 @@ argv = defaultdict(list)
 def notitfy(msg):
     subprocess.Popen(["notify-send", "bpf-audit", msg])
 
+
 def monitor_udp_ipv4_event(cpu, data, size):
     event = b["udp_ipv4_events"].event(data)
     daddr = str(inet_ntop(AF_INET, pack("I", event.daddr)))
@@ -88,14 +89,20 @@ def monitor_udp_ipv4_event(cpu, data, size):
         else:
             logging.info(f"Successfully terminated process {event.pid}.")
     if daddr in ip_alertlist:
-        logging.info(f"Process with PID {event.pid} and UID {event.uid} initiated a UDP over IPv4 connection to remote address {daddr} on alert list.")
+        logging.info(
+            f"Process with PID {event.pid} and UID {event.uid} initiated a UDP over IPv4 connection to remote address {daddr} on alert list."
+        )
 
 
 def monitor_udp_ipv6_event(cpu, data, size):
     event = b["udp_ipv6_events"].event(data)
-    str(daddr = inet_ntop(AF_INET6, event.daddr).encode())
+    daddr = str(inet_ntop(AF_INET6, event.daddr))
     if daddr in ip_blacklist:
-        print("Process with PID {} and UID {} initiated a UDP over IPv6 connection to remote address {} on blacklist.".format(event.pid, event.uid, daddr))
+        print(
+            "Process with PID {} and UID {} initiated a UDP over IPv6 connection to remote address {} on blacklist.".format(
+                event.pid, event.uid, daddr
+            )
+        )
         try:
             os.kill(event.pid, signal.SIGTERM)
         except:
@@ -103,7 +110,9 @@ def monitor_udp_ipv6_event(cpu, data, size):
         else:
             logging.info(f"Successfully terminated process {event.pid}.")
     if daddr in ip_alertlist:
-        logging.info(f"Process with PID {event.pid} and UID {event.uid} initiated a UDP over IPv6 connection to remote address {daddr} on alert list.")
+        logging.info(
+            f"Process with PID {event.pid} and UID {event.uid} initiated a UDP over IPv6 connection to remote address {daddr} on alert list."
+        )
 
 
 def monitor_tcpaccept_ipv4_event(cpu, data, size):
@@ -111,7 +120,8 @@ def monitor_tcpaccept_ipv4_event(cpu, data, size):
     daddr = str(inet_ntop(AF_INET, pack("I", event.daddr)).encode())[2:-1]
     if daddr in ip_blacklist:
         logging.info(
-            f"Process with PID {event.pid} and UID {event.uid} accepted a TCP over IPv4 connection from remote address {daddr} on blacklist.")
+            f"Process with PID {event.pid} and UID {event.uid} accepted a TCP over IPv4 connection from remote address {daddr} on blacklist."
+        )
         try:
             os.kill(event.pid, signal.SIGTERM)
         except:
@@ -119,19 +129,9 @@ def monitor_tcpaccept_ipv4_event(cpu, data, size):
         else:
             logging.info(f"Successfully terminated process {event.pid}.")
     if daddr in ip_alertlist:
-        logging.info(f"Process with PID {event.pid} and UID {event.uid} accepted a TCP over IPv4 connection from remote address {daddr} on alert list.")
-    # printb(
-    #     b"%-7d %-12.12s %-2d %-16s %-5d %-16s %-5d"
-    #     % (
-    #         event.pid,
-    #         event.task,
-    #         event.ip,
-    #         inet_ntop(AF_INET, pack("I", event.daddr)).encode(),
-    #         event.dport,
-    #         inet_ntop(AF_INET, pack("I", event.saddr)).encode(),
-    #         event.lport,
-    #     )
-    # )
+        logging.info(
+            f"Process with PID {event.pid} and UID {event.uid} accepted a TCP over IPv4 connection from remote address {daddr} on alert list."
+        )
 
 
 def monitor_tcpaccept_ipv6_event(cpu, data, size):
@@ -139,7 +139,8 @@ def monitor_tcpaccept_ipv6_event(cpu, data, size):
     daddr = str(inet_ntop(AF_INET, pack("I", event.daddr)).encode())[2:-1]
     if daddr in ip_blacklist:
         logging.info(
-            f"Process with PID {event.pid} and UID {event.uid} accepted a TCP over IPv6 connection from remote address {daddr} on blacklist.")
+            f"Process with PID {event.pid} and UID {event.uid} accepted a TCP over IPv6 connection from remote address {daddr} on blacklist."
+        )
         try:
             os.kill(event.pid, signal.SIGTERM)
         except:
@@ -147,8 +148,9 @@ def monitor_tcpaccept_ipv6_event(cpu, data, size):
         else:
             logging.info(f"Successfully terminated process {event.pid}.")
     if daddr in ip_alertlist:
-        logging.info(f"Process with PID {event.pid} and UID {event.uid} accepted a TCP over IPv6 connection from remote address {daddr} on alert list.")
-    
+        logging.info(
+            f"Process with PID {event.pid} and UID {event.uid} accepted a TCP over IPv6 connection from remote address {daddr} on alert list."
+        )
 
 
 def monitor_tcpconnect_ipv4_event(cpu, data, size):
@@ -156,7 +158,8 @@ def monitor_tcpconnect_ipv4_event(cpu, data, size):
     daddr = str(inet_ntop(AF_INET, pack("I", event.daddr)).encode())[2:-1]
     if daddr in ip_blacklist:
         logging.info(
-            f"Process with PID {event.pid} and UID {event.uid} initiated a TCP over IPv4 connection to remote address {daddr} on blacklist.")
+            f"Process with PID {event.pid} and UID {event.uid} initiated a TCP over IPv4 connection to remote address {daddr} on blacklist."
+        )
         try:
             os.kill(event.pid, signal.SIGTERM)
         except:
@@ -164,19 +167,9 @@ def monitor_tcpconnect_ipv4_event(cpu, data, size):
         else:
             logging.info(f"Successfully terminated process {event.pid}.")
     if daddr in ip_alertlist:
-        logging.info(f"Process with PID {event.pid} and UID {event.uid} initiated a TCP over IPv4 connection to remote address {daddr} on alert list.")
-    
-    # printb(
-    #     b"%-6d %-12.12s %-2d %-16s %-16s %-6d"
-    #     % (
-    #         event.pid,
-    #         event.task,
-    #         event.ip,
-    #         inet_ntop(AF_INET, pack("I", event.saddr)).encode(),
-    #         inet_ntop(AF_INET, pack("I", event.daddr)).encode(),
-    #         event.dport,
-    #     )
-    # )
+        logging.info(
+            f"Process with PID {event.pid} and UID {event.uid} initiated a TCP over IPv4 connection to remote address {daddr} on alert list."
+        )
 
 
 def monitor_tcpconnect_ipv6_event(cpu, data, size):
@@ -184,7 +177,8 @@ def monitor_tcpconnect_ipv6_event(cpu, data, size):
     daddr = str(inet_ntop(AF_INET, pack("I", event.daddr)).encode())[2:-1]
     if daddr in ip_blacklist:
         logging.info(
-            f"Process with PID {event.pid} and UID {event.uid} initiated a TCP over IPv6 connection to remote address {daddr} on blacklist.")
+            f"Process with PID {event.pid} and UID {event.uid} initiated a TCP over IPv6 connection to remote address {daddr} on blacklist."
+        )
         try:
             os.kill(event.pid, signal.SIGTERM)
         except:
@@ -192,7 +186,9 @@ def monitor_tcpconnect_ipv6_event(cpu, data, size):
         else:
             logging.info(f"Successfully terminated process {event.pid}.")
     if daddr in ip_alertlist:
-        logging.info(f"Process with PID {event.pid} and UID {event.uid} initiated a TCP over IPv6 connection to remote address {daddr} on alert list.")
+        logging.info(
+            f"Process with PID {event.pid} and UID {event.uid} initiated a TCP over IPv6 connection to remote address {daddr} on alert list."
+        )
 
 
 def monitor_opensnoop_event(cpu, data, size):
@@ -216,13 +212,14 @@ def monitor_opensnoop_event(cpu, data, size):
 
 def print_dns_event(cpu, data, size):
     event = b["dns_events"].event(data)
-    payload = event.pkt[:event.buflen]
+    payload = event.pkt[: event.buflen]
     dnspkt = dnslib.DNSRecord.parse(payload)
-    #print(event.uid, event.pid, dnspkt.q.qname)
+    # print(event.uid, event.pid, dnspkt.q.qname)
     domain_name = str(dnspkt.q.qname)[:-1]
     if any(domain_name in x for x in domain_blacklist):
         logging.info(
-            f"Process with PID {event.pid} and UID {event.uid} initiated a TCP over IPv6 connection to remote domain {domain_name} on blacklist.")
+            f"Process with PID {event.pid} and UID {event.uid} initiated a TCP over IPv6 connection to remote domain {domain_name} on blacklist."
+        )
         try:
             os.kill(event.pid, signal.SIGTERM)
         except:
@@ -230,7 +227,9 @@ def print_dns_event(cpu, data, size):
         else:
             logging.info(f"Successfully terminated process {event.pid}.")
     if any(domain_name in x for x in domain_alertlist):
-        logging.info(f"Process with PID {event.pid} and UID {event.uid} initiated a TCP over IPv6 connection to remote domain {domain_name} on alert list.")
+        logging.info(
+            f"Process with PID {event.pid} and UID {event.uid} initiated a TCP over IPv6 connection to remote domain {domain_name} on alert list."
+        )
     pass
 
 
@@ -274,8 +273,7 @@ def print_tcpreset_event(cpu, data, size):
     """
     event = b["tcpreset_ipv4_events"].event(data)
     cache.setdefault(
-        event.saddr,
-        TTLCache(maxsize=65536, ttl=10),  # max port length  # threshold
+        event.saddr, TTLCache(maxsize=65536, ttl=10)  # max port length  # threshold
     )
     cache[event.saddr][event.dport] = 1
     if len(cache[event.saddr]) > tcpreset_threshold:
